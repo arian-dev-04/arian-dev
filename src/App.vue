@@ -40,7 +40,13 @@
     <!-- ============================================================ -->
     <!--  نوار بالای سایت (App Bar / Navbar)                         -->
     <!-- ============================================================ -->
-    <header class="navbar" :dir="isFa ? 'rtl' : 'ltr'">
+    <header
+      class="navbar"
+      :dir="isFa ? 'rtl' : 'ltr'"
+      :style="{
+        transform: isNavVisible ? 'translateY(0)' : 'translateY(-100%)',
+      }"
+    >
       <div class="container nav-shell">
         <div class="nav-col nav-col-start">
           <a href="#home" class="brand">
@@ -473,6 +479,8 @@ const theme = ref("dark");
 const isFa = computed(() => lang.value === "fa");
 const menuOpen = ref(false);
 const showAk = ref(false);
+const isNavVisible = ref(true);
+let lastScrollY = 0;
 
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value;
@@ -878,6 +886,16 @@ const clearTrail = () => {
   stars.value = [];
 };
 
+const handleScroll = () => {
+  const currentScrollY = window.scrollY;
+  if (currentScrollY > lastScrollY && currentScrollY > 100) {
+    isNavVisible.value = false;
+  } else {
+    isNavVisible.value = true;
+  }
+  lastScrollY = currentScrollY;
+};
+
 onMounted(() => {
   const savedTheme = localStorage.getItem("ak-theme");
   const savedLang = localStorage.getItem("ak-lang");
@@ -900,6 +918,7 @@ onMounted(() => {
 
   window.addEventListener("mousemove", mouseMoveHandler, { passive: true });
   window.addEventListener("mouseout", mouseOutHandler);
+  window.addEventListener("scroll", handleScroll);
 });
 
 onBeforeUnmount(() => {
@@ -907,6 +926,7 @@ onBeforeUnmount(() => {
   if (mouseMoveHandler)
     window.removeEventListener("mousemove", mouseMoveHandler);
   if (mouseOutHandler) window.removeEventListener("mouseout", mouseOutHandler);
+  window.removeEventListener("scroll", handleScroll);
 });
 
 watch(theme, (val) => localStorage.setItem("ak-theme", val));
@@ -1013,6 +1033,7 @@ watch(lang, (val) => {
   overflow-x: hidden;
   color: var(--text-main);
   background: var(--hero-bg);
+  padding-top: 88px; /* height of navbar */
 }
 
 .app.light {
@@ -1242,8 +1263,11 @@ watch(lang, (val) => {
 /*  Navbar                                                           */
 /* ================================================================= */
 .navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
   z-index: 60;
   direction: ltr !important;
   backdrop-filter: blur(18px);
@@ -1253,6 +1277,7 @@ watch(lang, (val) => {
     rgba(255, 255, 255, 0.015)
   );
   border-bottom: 1px solid var(--border);
+  transition: transform 0.3s ease;
 }
 
 .nav-shell {
@@ -3215,6 +3240,10 @@ watch(lang, (val) => {
     backdrop-filter: blur(16px);
   }
 
+  .app {
+    padding-top: 72px;
+  }
+
   .nav-shell {
     display: flex;
     align-items: center;
@@ -3366,6 +3395,10 @@ watch(lang, (val) => {
 @media (max-width: 760px) {
   .container {
     width: calc(100% - 22px);
+  }
+
+  .app {
+    padding-top: 64px;
   }
 
   .section {
