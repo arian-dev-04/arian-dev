@@ -3703,9 +3703,13 @@ watch(lang, (value) => {
   color: var(--text);
 
   font-size: 14px;
-  line-height: 1.1;
+  line-height: 1.4;
+
+  padding-block: 0.05em 0.22em;
 
   white-space: nowrap;
+
+  overflow: visible;
 }
 
 .brand-copy strong {
