@@ -16,6 +16,14 @@
         aria-live="polite"
         :aria-label="isFa ? 'در حال آماده‌سازی سایت' : 'Initializing website'"
       >
+        <div
+          ref="loaderBackgroundLottieContainer"
+          class="initial-loader-background-lottie"
+          aria-hidden="true"
+        ></div>
+
+        <div class="initial-loader-backdrop" aria-hidden="true"></div>
+
         <div class="initial-loader-grid" aria-hidden="true"></div>
 
         <div class="initial-loader-atmosphere" aria-hidden="true">
@@ -89,12 +97,7 @@
     <!-- =========================================================
          NAVBAR
     ========================================================== -->
-    <header
-      class="navbar"
-      :style="{
-        transform: isNavVisible ? 'translateY(0)' : 'translateY(-110%)',
-      }"
-    >
+    <header class="navbar">
       <div class="container nav-shell">
         <div class="nav-col nav-col-start">
           <a href="#home" class="brand" @click="menuOpen = false">
@@ -932,8 +935,11 @@ import {
 } from "vue";
 import lottie from "lottie-web";
 import pollwonAnimation from "./assets/animations/pollwon.json";
-import birdAnimation from "./assets/animations/bird (1).json";
+import birdAnimation from "./assets/animations/Jellyfish greeting you!.json";
+import appleImagePlaygroundAnimation from "./assets/animations/Apple Image Playground Animation.json";
 import windowLayoutAnimation from "./assets/animations/Window layout.json";
+import moonRoverAnimation from "./assets/animations/bird (1).json";
+import techStartupAnimation from "./assets/animations/tech startup.json";
 import codingWorkspaceImage from "./assets/images/photo-programming.avif";
 import techInterfaceImage from "./assets/images/photo-programming.avif";
 import modernOfficeImage from "./assets/images/photo-programming.avif";
@@ -949,7 +955,7 @@ const menuOpen = ref(false);
 const isNavVisible = ref(true);
 
 const isInitialLoading = ref(true);
-const INITIAL_LOADING_MS = 2400;
+const INITIAL_LOADING_MS = 3400;
 let initialLoadingTimeout = null;
 
 /* ---------- loader copy + progress ---------- */
@@ -961,7 +967,7 @@ let loaderFrame = 0;
 let loaderLoadHandler = null;
 
 const loaderTitle = computed(() =>
-  isFa.value ? "ایده‌ها را به کد تبدیل می‌کنیم" : "Where ideas meet code",
+  isFa.value ? "تبدیل ایده‌ها به کد" : "Where ideas meet code",
 );
 
 const finishInitialLoading = () => {
@@ -1018,11 +1024,13 @@ const startInitialLoader = () => {
 
 const lottieContainer = ref(null);
 const loaderLottieContainer = ref(null);
+const loaderBackgroundLottieContainer = ref(null);
 const mobileLottieContainer = ref(null);
 const servicesLottieContainer = ref(null);
 const contactLottieContainer = ref(null);
 
 let loaderLottieInstance = null;
+let loaderBackgroundLottieInstance = null;
 
 let lastScrollY = 0;
 let typingTimeout = null;
@@ -1075,7 +1083,7 @@ const translations = {
       primaryBtn: "مشاهده پروژه‌ها",
       secondaryBtn: "ارتباط با من",
 
-      role: "Frontend, Flutter, Go & UI/UX Developer",
+      role: "Frontend, Flutter, Go Developer",
 
       techs: ["Vue.js", "Flutter", "JavaScript", "Dart", "Go", "UI/UX"],
     },
@@ -2114,18 +2122,34 @@ const createLottie = (container, options = {}) => {
 
 const initLoaderLottie = () => {
   loaderLottieInstance?.destroy();
+  loaderBackgroundLottieInstance?.destroy();
 
   loaderLottieInstance = createLottie(loaderLottieContainer.value, {
     animationData: birdAnimation,
   });
 
   loaderLottieInstance?.setSpeed(0.9);
+
+  loaderBackgroundLottieInstance = createLottie(
+    loaderBackgroundLottieContainer.value,
+    {
+      animationData: appleImagePlaygroundAnimation,
+      rendererSettings: {
+        preserveAspectRatio: "xMidYMid slice",
+        progressiveLoad: true,
+      },
+    },
+  );
+
+  loaderBackgroundLottieInstance?.setSpeed(0.9);
 };
 
 const destroyLoaderLottie = () => {
   loaderLottieInstance?.destroy();
+  loaderBackgroundLottieInstance?.destroy();
 
   loaderLottieInstance = null;
+  loaderBackgroundLottieInstance = null;
 };
 
 /*
@@ -2204,7 +2228,9 @@ const initLotties = () => {
   });
 
   registerLottie(contactLottieContainer.value, () => {
-    const instance = createLottie(contactLottieContainer.value);
+    const instance = createLottie(contactLottieContainer.value, {
+      animationData: techStartupAnimation,
+    });
 
     instance?.setSpeed(0.75);
 
@@ -2233,7 +2259,9 @@ watch(menuOpen, async (open) => {
   mobileLottieEl = el;
 
   registerLottie(el, () => {
-    const instance = createLottie(el);
+    const instance = createLottie(el, {
+      animationData: moonRoverAnimation,
+    });
 
     instance?.setSpeed(0.7);
 
@@ -2481,6 +2509,7 @@ onBeforeUnmount(() => {
   }
 
   loaderLottieInstance?.destroy();
+  loaderBackgroundLottieInstance?.destroy();
 
   lottieEntries.forEach((entry) => entry.instance?.destroy());
   lottieEntries.clear();
@@ -2670,13 +2699,41 @@ watch(lang, (value) => {
   place-items: center;
   overflow: hidden;
   background: #050b14;
-  color: #f5f8fd;
+  color: #ffffff;
   isolation: isolate;
 }
 
-.app.light .initial-loader {
-  background: #f4f7fb;
-  color: #0f172a;
+.initial-loader-background-lottie {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.78;
+  background: #050b14;
+}
+
+.initial-loader-background-lottie svg {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.initial-loader-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      transparent 0%,
+      rgba(5, 11, 20, 0.12) 48%,
+      rgba(5, 11, 20, 0.52) 100%
+    ),
+    linear-gradient(180deg, rgba(5, 11, 20, 0.12), rgba(5, 11, 20, 0.32));
 }
 
 .app.is-loading {
@@ -2687,6 +2744,7 @@ watch(lang, (value) => {
 .initial-loader-grid {
   position: absolute;
   inset: 0;
+  z-index: 2;
   opacity: 0.34;
   background-image:
     linear-gradient(rgba(88, 216, 255, 0.055) 1px, transparent 1px),
@@ -2704,7 +2762,7 @@ watch(lang, (value) => {
 .initial-loader-atmosphere {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 2;
   pointer-events: none;
   overflow: hidden;
   background: transparent;
@@ -2739,12 +2797,6 @@ watch(lang, (value) => {
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-.app.light .initial-loader-center {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
 }
 
 .initial-loader-animation {
@@ -2937,7 +2989,7 @@ watch(lang, (value) => {
 
 .initial-loader-center h2 {
   margin: 0;
-  color: inherit;
+  color: #ffffff;
   font-size: clamp(16px, 2vw, 21px);
   line-height: 1.4;
   font-weight: 850;
@@ -2946,13 +2998,9 @@ watch(lang, (value) => {
 
 .initial-loader-center p {
   margin: 9px 0 0;
-  color: #8fa3bd;
+  color: #ffffff;
   font-size: 13px;
   line-height: 1.7;
-}
-
-.app.light .initial-loader-center p {
-  color: #66748a;
 }
 
 .initial-loader-progress-row {
@@ -2989,16 +3037,12 @@ watch(lang, (value) => {
 
 .initial-loader-percent {
   min-width: 44px;
-  color: #eefbff;
+  color: #ffffff;
   font-size: 13px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   text-align: end;
-}
-
-.app.light .initial-loader-percent {
-  color: #17243a;
 }
 
 .initial-loader-enter-active,
@@ -4050,7 +4094,7 @@ watch(lang, (value) => {
   display: flex;
   align-items: center;
 
-  gap: 10px;
+  gap: 20px;
 
   min-width: 0;
 }
@@ -5103,8 +5147,6 @@ watch(lang, (value) => {
   background: rgba(9, 16, 27, 0.82);
 
   backdrop-filter: blur(14px);
-
-  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.22);
 
   animation: floatCard 5s ease-in-out infinite;
 }
@@ -7721,6 +7763,20 @@ canvas {
   .app.light.lang-fa .mobile-menu-panel {
     box-shadow: -25px 0 70px rgba(55, 75, 105, 0.12) !important;
   }
+}
+
+/* Moon Rover menu animation: no background, glow or decorative wrapper. */
+.mobile-menu-mark {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+.mobile-lottie {
+  width: 45px !important;
+  height: 45px !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
