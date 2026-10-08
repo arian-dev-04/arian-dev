@@ -972,6 +972,10 @@ const loaderTitle = computed(() =>
 
 const finishInitialLoading = () => {
   isInitialLoading.value = false;
+
+  nextTick(() => {
+    destroyLoaderLottie();
+  });
 };
 
 const startInitialLoader = () => {
@@ -2094,6 +2098,12 @@ const resetTyping = () => {
 /* =========================================================
    LOTTIE
 ========================================================= */
+
+/*
+  Main Lottie factory.
+  Kept exactly as before so all other Lottie animations
+  preserve their original behavior.
+*/
 const createLottie = (container, options = {}) => {
   if (!container) return null;
 
@@ -2120,28 +2130,76 @@ const createLottie = (container, options = {}) => {
   });
 };
 
-const initLoaderLottie = () => {
-  loaderLottieInstance?.destroy();
-  loaderBackgroundLottieInstance?.destroy();
+/*
+  Loader-specific Lottie factory.
+  It is intentionally separate from createLottie() so
+  changes here cannot affect the other animations.
+*/
+const createLoaderLottie = (container, options = {}) => {
+  if (!container) return null;
 
-  loaderLottieInstance = createLottie(loaderLottieContainer.value, {
+  const { animationData, ...lottieOptions } = options;
+
+  return lottie.loadAnimation({
+    container,
+
+    renderer: "svg",
+
+    loop: true,
+
+    autoplay: false,
+
+    animationData,
+
+    rendererSettings: {
+      preserveAspectRatio: "xMidYMid meet",
+
+      progressiveLoad: true,
+
+      hideOnTransparent: true,
+    },
+
+    ...lottieOptions,
+  });
+};
+
+const initLoaderLottie = () => {
+  destroyLoaderLottie();
+
+  /*
+    Create both loader animations before starting them.
+    No 250ms delay and no staggered start.
+  */
+  loaderLottieInstance = createLoaderLottie(loaderLottieContainer.value, {
     animationData: jellyfishGreetingAnimation,
   });
 
-  loaderLottieInstance?.setSpeed(0.9);
-
-  loaderBackgroundLottieInstance = createLottie(
+  loaderBackgroundLottieInstance = createLoaderLottie(
     loaderBackgroundLottieContainer.value,
     {
       animationData: appleImagePlaygroundAnimation,
+
       rendererSettings: {
         preserveAspectRatio: "xMidYMid slice",
+
         progressiveLoad: true,
+
+        hideOnTransparent: true,
       },
     },
   );
 
+  loaderLottieInstance?.setSpeed(0.9);
   loaderBackgroundLottieInstance?.setSpeed(0.9);
+
+  /*
+    Start both on the same animation frame.
+    This keeps their visual timing synchronized.
+  */
+  requestAnimationFrame(() => {
+    loaderBackgroundLottieInstance?.play();
+    loaderLottieInstance?.play();
+  });
 };
 
 const destroyLoaderLottie = () => {
@@ -2508,8 +2566,7 @@ onBeforeUnmount(() => {
     window.removeEventListener("load", loaderLoadHandler);
   }
 
-  loaderLottieInstance?.destroy();
-  loaderBackgroundLottieInstance?.destroy();
+  destroyLoaderLottie();
 
   lottieEntries.forEach((entry) => entry.instance?.destroy());
   lottieEntries.clear();
