@@ -935,10 +935,10 @@ import {
 } from "vue";
 import lottie from "lottie-web";
 import pollwonAnimation from "./assets/animations/pollwon.json";
-import birdAnimation from "./assets/animations/Jellyfish greeting you!.json";
+import jellyfishGreetingAnimation from "./assets/animations/Jellyfish greeting you!.json";
 import appleImagePlaygroundAnimation from "./assets/animations/Apple Image Playground Animation.json";
 import windowLayoutAnimation from "./assets/animations/Window layout.json";
-import moonRoverAnimation from "./assets/animations/bird (1).json";
+import birdAnimation from "./assets/animations/bird (1).json";
 import techStartupAnimation from "./assets/animations/tech startup.json";
 import codingWorkspaceImage from "./assets/images/photo-programming.avif";
 import techInterfaceImage from "./assets/images/photo-programming.avif";
@@ -2125,7 +2125,7 @@ const initLoaderLottie = () => {
   loaderBackgroundLottieInstance?.destroy();
 
   loaderLottieInstance = createLottie(loaderLottieContainer.value, {
-    animationData: birdAnimation,
+    animationData: jellyfishGreetingAnimation,
   });
 
   loaderLottieInstance?.setSpeed(0.9);
@@ -2260,7 +2260,7 @@ watch(menuOpen, async (open) => {
 
   registerLottie(el, () => {
     const instance = createLottie(el, {
-      animationData: moonRoverAnimation,
+      animationData: birdAnimation,
     });
 
     instance?.setSpeed(0.7);
