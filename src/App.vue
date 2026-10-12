@@ -1903,12 +1903,13 @@ let portalFrame = 0;
 
 const runPortal = () => {
   const canvas = portalCanvas.value;
-  const ctx = canvas?.getContext("2d");
+  const ctx = canvas?.getContext("2d", { desynchronized: true });
 
   if (!ctx) return;
 
   const TAU = Math.PI * 2;
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const STOP_AT = 0.82; /* the hole already covers the whole screen here */
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
   const w = window.innerWidth;
   const h = window.innerHeight;
   const dark = theme.value === "dark";
@@ -1920,10 +1921,10 @@ const runPortal = () => {
   const cy = h / 2;
   const maxR = Math.hypot(cx, cy) + 60;
   const hasConic = typeof ctx.createConicGradient === "function";
-  const sparks = Array.from({ length: 28 }, () => ({
+  const sparks = Array.from({ length: 20 }, () => ({
     a: Math.random() * TAU,
     speed: 0.35 + Math.random() * 0.9,
-    size: 1.2 + Math.random() * 2.6,
+    size: 1.2 + Math.random() * 2.4,
     off: (Math.random() - 0.5) * 16,
     color: cols[Math.floor(Math.random() * cols.length)],
   }));
@@ -1934,51 +1935,50 @@ const runPortal = () => {
   canvas.height = Math.round(h * dpr);
   ctx.scale(dpr, dpr);
 
-  const ring = (radius, angle, width, alpha) => {
-    if (radius < 1) return;
-
-    let style = cols[0];
-
-    if (hasConic) {
-      style = ctx.createConicGradient(angle, cx, cy);
-      cols.forEach((color, i) => style.addColorStop(i / cols.length, color));
-      style.addColorStop(1, cols[0]);
-    }
-
-    ctx.globalAlpha = alpha;
-    ctx.strokeStyle = style;
-    ctx.lineWidth = width;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, TAU);
-    ctx.stroke();
-  };
-
   const draw = (now) => {
     const t = Math.min(1, (now - startedAt) / PORTAL_MS);
-    const r = ease(t) * maxR;
-    const fade =
-      t < 0.06 ? t / 0.06 : t > 0.78 ? Math.max(0, (1 - t) / 0.22) : 1;
-    const spin = t * TAU * 1.25;
 
-    ctx.globalCompositeOperation = "source-over";
+    if (t >= STOP_AT) {
+      ctx.clearRect(0, 0, w, h);
+
+      return;
+    }
+
+    const r = ease(t) * maxR;
+    const fade = t < 0.06 ? t / 0.06 : Math.min(1, (STOP_AT - t) / 0.16);
+    const spin = t * TAU * 1.25;
+    let stroke = cols[0];
+
+    /* cover with a hole, in a single fill (no compositing modes) */
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, w, h);
-
-    ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
+    ctx.rect(0, 0, w, h);
     ctx.arc(cx, cy, r, 0, TAU);
-    ctx.fill();
-    ctx.globalCompositeOperation = "source-over";
+    ctx.fill("evenodd");
 
-    /* glow layers, then the crisp rotating gradient ring */
-    ring(r, spin, 46, 0.08 * fade);
-    ring(r, spin, 22, 0.16 * fade);
-    ring(r, spin, 9, 0.34 * fade);
-    ring(r, spin, 3, fade);
-    ring(r * 0.9, -spin * 1.3, 1.6, 0.55 * fade);
-    ring(r * 0.8, spin * 0.8, 1, 0.3 * fade);
+    if (hasConic) {
+      stroke = ctx.createConicGradient(spin, cx, cy);
+      cols.forEach((color, i) => stroke.addColorStop(i / cols.length, color));
+      stroke.addColorStop(1, cols[0]);
+    }
+
+    /* one shared gradient: soft glow, bright core, thin inner echo */
+    ctx.strokeStyle = stroke;
+
+    [
+      [r, 20, 0.14],
+      [r, 8, 0.32],
+      [r, 3, 1],
+      [r * 0.9, 1.5, 0.5],
+    ].forEach(([radius, width, alpha]) => {
+      ctx.globalAlpha = alpha * fade;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, TAU);
+      ctx.stroke();
+    });
 
     /* sparks traveling along the leading edge */
     sparks.forEach((spark) => {
@@ -1987,7 +1987,7 @@ const runPortal = () => {
       const y = cy + Math.sin(angle) * (r + spark.off);
 
       ctx.fillStyle = spark.color;
-      ctx.globalAlpha = 0.18 * fade;
+      ctx.globalAlpha = 0.16 * fade;
       ctx.beginPath();
       ctx.arc(x, y, spark.size * 3.2, 0, TAU);
       ctx.fill();
@@ -1998,8 +1998,7 @@ const runPortal = () => {
     });
 
     ctx.globalAlpha = 1;
-
-    if (t < 1) portalFrame = requestAnimationFrame(draw);
+    portalFrame = requestAnimationFrame(draw);
   };
 
   portalFrame = requestAnimationFrame(draw);
@@ -2007,7 +2006,7 @@ const runPortal = () => {
 
 /* The page content starts animating in while the portal is still small. */
 const REVEAL_PAGE_START_MS = 600;
-const REVEAL_TOTAL_MS = 1750;
+const REVEAL_TOTAL_MS = 1350;
 let revealTimers = [];
 
 const finishInitialLoading = () => {
@@ -2026,9 +2025,11 @@ const finishInitialLoading = () => {
   window.scrollTo(0, 0);
 
   revealTimers = [
-    window.setTimeout(startPage, REVEAL_PAGE_START_MS),
+    window.setTimeout(setupReveal, REVEAL_PAGE_START_MS),
     window.setTimeout(() => {
       isRevealing.value = false;
+      typeEffect();
+      initLotties();
     }, REVEAL_TOTAL_MS),
   ];
 };
@@ -2080,6 +2081,13 @@ onMounted(() => {
   initLoaderLottie();
   runLoader();
   setupTrail();
+
+  /* warm the cache while the loader is on screen, so nothing heavy is
+     fetched or parsed during the opening reveal */
+  window.setTimeout(() => {
+    loadLottie();
+    ["hero", "services", "contact"].forEach((key) => ANIMATIONS[key]());
+  }, 700);
 });
 
 onBeforeUnmount(() => {
@@ -2234,6 +2242,18 @@ a {
 }
 
 /* Lottie SVGs are injected at runtime, so they need :deep() */
+.hero-lottie :deep(svg),
+.services-lottie :deep(svg),
+.contact-lottie :deep(svg) {
+  animation: lottieFadeIn 0.6s ease backwards;
+}
+
+@keyframes lottieFadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
 .initial-loader-lottie :deep(svg),
 .hero-lottie :deep(svg),
 .services-lottie :deep(svg),
@@ -2643,16 +2663,11 @@ a {
 }
 
 .initial-loader-leave-active {
-  transition:
-    opacity 0.55s ease,
-    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
-    filter 0.55s ease;
+  transition: opacity 0.28s ease;
 }
 
 .initial-loader-leave-to {
   opacity: 0;
-  transform: scale(1.04);
-  filter: blur(6px);
 }
 
 @keyframes ilBlob {
@@ -5186,7 +5201,18 @@ a {
 }
 
 .app.is-revealing .navbar {
-  animation: navDrop 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.7s backwards;
+  animation: navDrop 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.45s backwards;
+}
+
+/* backdrop blur on moving elements is expensive: off while the reveal runs */
+.app.is-revealing .nav-shell,
+.app.is-revealing .hero-chip,
+.app.is-revealing .floating-techs span,
+.app.is-revealing .lottie-caption,
+.app.is-revealing .section-badge,
+.app.is-revealing .switch-bg {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* hero content rises in as the portal opens */
