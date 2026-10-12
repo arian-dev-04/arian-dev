@@ -1318,8 +1318,65 @@ const currentYear = new Date().getFullYear();
 const toggleLang = () => {
   lang.value = isFa.value ? "en" : "fa";
 };
-const toggleTheme = () => {
+const applyTheme = () => {
   theme.value = theme.value === "dark" ? "light" : "dark";
+};
+
+/* Theme switch: a circular reveal that expands from the clicked button
+   (View Transitions API). Falls back to an instant switch when the
+   browser doesn't support it or the user prefers reduced motion. */
+let themeTransitioning = false;
+
+const toggleTheme = async (event) => {
+  const canAnimate =
+    typeof document.startViewTransition === "function" &&
+    !prefersReducedMotion &&
+    !themeTransitioning;
+
+  if (!canAnimate) {
+    applyTheme();
+
+    return;
+  }
+
+  const rect = event?.currentTarget?.getBoundingClientRect?.();
+  const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+  const y = rect ? rect.top + rect.height / 2 : 0;
+  const radius = Math.hypot(
+    Math.max(x, window.innerWidth - x),
+    Math.max(y, window.innerHeight - y),
+  );
+
+  themeTransitioning = true;
+
+  const transition = document.startViewTransition(async () => {
+    applyTheme();
+    await nextTick();
+  });
+
+  try {
+    await transition.ready;
+
+    document.documentElement.animate(
+      {
+        clipPath: [
+          `circle(0px at ${x}px ${y}px)`,
+          `circle(${radius}px at ${x}px ${y}px)`,
+        ],
+      },
+      {
+        duration: 950,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        pseudoElement: "::view-transition-new(root)",
+      },
+    );
+
+    await transition.finished;
+  } catch {
+    /* transition skipped or interrupted: the theme is already applied */
+  } finally {
+    themeTransitioning = false;
+  }
 };
 
 const localizedSkills = computed(() =>
@@ -2030,6 +2087,21 @@ body {
 
 a {
   text-decoration: none;
+}
+
+/* Theme-switch circular reveal: the animation itself runs from JS. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
 }
 
 @media (prefers-reduced-motion: reduce) {
