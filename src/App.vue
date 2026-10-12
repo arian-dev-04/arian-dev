@@ -13,7 +13,7 @@
     :lang="isFa ? 'fa' : 'en'"
   >
     <!-- =========================================================
-         INITIAL LOADER (lightweight: CSS rings + one lazy Lottie)
+         INITIAL LOADER (lightweight geometric frame + one lazy Lottie)
     ========================================================== -->
     <Transition name="initial-loader" @after-leave="destroyLoaderLottie">
       <div
@@ -32,15 +32,14 @@
 
         <div class="initial-loader-center">
           <div class="initial-loader-animation" aria-hidden="true">
-            <span class="initial-loader-halo"></span>
-            <span class="initial-loader-ring"></span>
-            <span class="initial-loader-ring initial-loader-ring-2"></span>
-            <span class="initial-loader-ring initial-loader-ring-3"></span>
-            <span class="initial-loader-ring initial-loader-ring-4"></span>
+            <span class="initial-loader-frame initial-loader-frame-1"></span>
+            <span class="initial-loader-frame initial-loader-frame-2"></span>
 
-            <span class="il-orbit il-orbit-1"><i></i></span>
-            <span class="il-orbit il-orbit-2"><i></i></span>
-            <span class="il-orbit il-orbit-3"><i></i></span>
+            <span class="initial-loader-corner corner-tl"></span>
+            <span class="initial-loader-corner corner-tr"></span>
+            <span class="initial-loader-corner corner-bl"></span>
+            <span class="initial-loader-corner corner-br"></span>
+            <span class="initial-loader-scan"></span>
 
             <div
               ref="loaderLottieContainer"
@@ -75,19 +74,8 @@
     <!-- =========================================================
          OPENING REVEAL (runs right after the loader finishes)
     ========================================================== -->
-    <div
-      v-if="isRevealing"
-      class="portal"
-      aria-hidden="true"
-      :style="{ '--cols': BUBBLE_COLS, '--rows': BUBBLE_ROWS }"
-    >
-      <span v-for="bubble in BUBBLES" :key="bubble.id" class="bubble-cell">
-        <i
-          class="bubble"
-          :class="`tone-${bubble.tone}`"
-          :style="{ '--delay': `${bubble.delay}ms` }"
-        ></i>
-      </span>
+    <div v-if="isRevealing" class="portal" aria-hidden="true">
+      <span class="portal-grid"></span>
     </div>
 
     <div v-if="trailEnabled" class="mouse-trail-layer" aria-hidden="true">
@@ -978,22 +966,7 @@ const ANIMATIONS = {
 const MIN_LOADING_MS = 3800;
 const MAX_LOADING_MS = 6500;
 
-/* Opening reveal: a grid of overlapping "balloons" that pop from the center
-   outward (transform-only animation, so it stays smooth on any device). */
-const BUBBLE_COLS = 8;
-const BUBBLE_ROWS = 6;
-const BUBBLES = Array.from({ length: BUBBLE_COLS * BUBBLE_ROWS }, (_, i) => {
-  const col = i % BUBBLE_COLS;
-  const row = Math.floor(i / BUBBLE_COLS);
-  const dx = (col - (BUBBLE_COLS - 1) / 2) / (BUBBLE_COLS / 2);
-  const dy = (row - (BUBBLE_ROWS - 1) / 2) / (BUBBLE_ROWS / 2);
-
-  return {
-    id: i,
-    tone: i % 4,
-    delay: Math.round(60 + Math.hypot(dx, dy) * 560 + Math.random() * 110),
-  };
-});
+/* Opening reveal uses one GPU-friendly blue curtain instead of many bubbles. */
 
 /* =========================================================
    TRANSLATIONS
@@ -1918,10 +1891,9 @@ const startPage = () => {
   setupReveal();
 };
 
-/* Opening reveal: balloons pop outward from the center right after the loader. The page content
-   starts animating in exactly as the first balloons pop. */
-const REVEAL_PAGE_START_MS = 350;
-const REVEAL_TOTAL_MS = 1750;
+/* Open the page with a smooth diagonal light sweep after the loader fades. */
+const REVEAL_PAGE_START_MS = 300;
+const REVEAL_TOTAL_MS = 1500;
 let revealTimers = [];
 
 const finishInitialLoading = () => {
@@ -2163,11 +2135,11 @@ a {
   --il-bg: #050b14;
   --il-text: #f3f8ff;
   --il-soft: #9fb2cc;
-  --il-c1: #58d8ff;
-  --il-c2: #7469ff;
-  --il-c3: #ff8eea;
-  --il-c4: #72f2cb;
-  --il-c5: #ffd36b;
+  --il-c1: #43cfff;
+  --il-c2: #287cf0;
+  --il-c3: #a2efff;
+  --il-c4: #65b9ff;
+  --il-c5: #d9f7ff;
   --il-track: rgba(120, 146, 176, 0.16);
   --il-grid: rgba(88, 216, 255, 0.06);
   --il-chip-bg: rgba(255, 255, 255, 0.05);
@@ -2189,10 +2161,10 @@ a {
   --il-text: #0e1626;
   --il-soft: #51627a;
   --il-c1: #0b8fc2;
-  --il-c2: #5a49d6;
-  --il-c3: #d6489f;
-  --il-c4: #0c9a7e;
-  --il-c5: #e08a00;
+  --il-c2: #126ed0;
+  --il-c3: #69d4f0;
+  --il-c4: #58aaf0;
+  --il-c5: #8ce3ff;
   --il-track: rgba(15, 23, 42, 0.1);
   --il-grid: rgba(6, 120, 170, 0.07);
   --il-chip-bg: rgba(255, 255, 255, 0.8);
@@ -2281,143 +2253,110 @@ a {
 }
 
 .initial-loader-animation {
+  --il-scan-distance: clamp(62px, 16vw, 92px);
+
   position: relative;
   width: clamp(146px, 31vw, 198px);
   height: clamp(146px, 31vw, 198px);
-  margin: 56px auto 84px;
+  margin: clamp(28px, 4.5vh, 42px) auto clamp(34px, 5.5vh, 50px);
   display: grid;
   place-items: center;
+  isolation: isolate;
 }
 
-.initial-loader-halo {
+/* Layered glass frames replace the busy rotating rings. */
+.initial-loader-frame {
   position: absolute;
-  inset: -26px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--il-c1) 30%, transparent),
-    color-mix(in srgb, var(--il-c2) 14%, transparent) 46%,
-    transparent 70%
-  );
-  animation: ilBreathe 3.4s ease-in-out infinite;
+  pointer-events: none;
 }
 
-.initial-loader-ring {
+.initial-loader-frame-1 {
+  inset: 8px;
+  border: 1px solid color-mix(in srgb, var(--il-c1) 38%, transparent);
+  border-radius: 30px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--il-c1) 8%, transparent),
+    transparent 52%,
+    color-mix(in srgb, var(--il-c2) 7%, transparent)
+  );
+  box-shadow:
+    inset 0 0 28px color-mix(in srgb, var(--il-c1) 5%, transparent),
+    0 0 34px color-mix(in srgb, var(--il-c1) 8%, transparent);
+  animation: ilFrameFloat 4.6s ease-in-out infinite;
+}
+
+.initial-loader-frame-2 {
+  inset: 32px;
+  border: 1px solid color-mix(in srgb, var(--il-c2) 42%, transparent);
+  border-radius: 19px;
+  transform: rotate(45deg);
+  opacity: 0.6;
+  animation: ilFrameTurn 9s ease-in-out infinite alternate;
+}
+
+.initial-loader-corner {
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1.5px solid color-mix(in srgb, var(--il-c1) 14%, transparent);
-  border-top-color: var(--il-c1);
-  border-right-color: color-mix(in srgb, var(--il-c1) 70%, transparent);
-  border-bottom-color: color-mix(in srgb, var(--il-c4) 28%, transparent);
-  animation: loaderRingSpin 4.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-}
-
-.initial-loader-ring-2 {
-  inset: 15px;
-  border-color: color-mix(in srgb, var(--il-c2) 14%, transparent);
-  border-bottom-color: var(--il-c2);
-  border-left-color: color-mix(in srgb, var(--il-c2) 62%, transparent);
-  animation-duration: 6.6s;
-  animation-direction: reverse;
-}
-
-.initial-loader-ring-3,
-.initial-loader-ring-4 {
-  border: 0;
-  background: conic-gradient(
-    from 0deg,
-    var(--il-c1),
-    var(--il-c2),
-    var(--il-c3),
-    var(--il-c5),
-    var(--il-c4),
-    var(--il-c1)
-  );
-  -webkit-mask: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 3px),
-    #000 calc(100% - 2px)
-  );
-  mask: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 3px),
-    #000 calc(100% - 2px)
-  );
-  animation: loaderRingSpin 9s linear infinite;
-}
-
-.initial-loader-ring-3 {
-  inset: -30px;
+  z-index: 2;
+  width: 19px;
+  height: 19px;
+  border-color: var(--il-c1);
+  border-style: solid;
   opacity: 0.9;
-}
-
-.initial-loader-ring-4 {
-  inset: -56px;
-  opacity: 0.4;
-  -webkit-mask: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 2px),
-    #000 calc(100% - 1px)
+  filter: drop-shadow(
+    0 0 5px color-mix(in srgb, var(--il-c1) 35%, transparent)
   );
-  mask: radial-gradient(
-    farthest-side,
-    transparent calc(100% - 2px),
-    #000 calc(100% - 1px)
+  animation: ilCornerPulse 3.2s ease-in-out infinite;
+}
+
+.corner-tl {
+  top: 2px;
+  left: 2px;
+  border-width: 2px 0 0 2px;
+  border-radius: 7px 0 0;
+}
+
+.corner-tr {
+  top: 2px;
+  right: 2px;
+  border-width: 2px 2px 0 0;
+  border-radius: 0 7px 0 0;
+  animation-delay: 0.8s;
+}
+
+.corner-bl {
+  bottom: 2px;
+  left: 2px;
+  border-width: 0 0 2px 2px;
+  border-radius: 0 0 0 7px;
+  animation-delay: 1.6s;
+}
+
+.corner-br {
+  right: 2px;
+  bottom: 2px;
+  border-width: 0 2px 2px 0;
+  border-radius: 0 0 7px;
+  animation-delay: 2.4s;
+}
+
+.initial-loader-scan {
+  position: absolute;
+  z-index: 1;
+  top: 16%;
+  left: 13%;
+  width: 74%;
+  height: 1px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--il-c1) 85%, white),
+    transparent
   );
-  animation-duration: 14s;
-  animation-direction: reverse;
-}
-
-.il-orbit {
-  position: absolute;
-  inset: -30px;
-  animation: loaderRingSpin 7s linear infinite;
-}
-
-.il-orbit i {
-  position: absolute;
-  top: -4px;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  margin-left: -4px;
-  border-radius: 50%;
-  background: var(--il-c1);
-  box-shadow:
-    0 0 10px var(--il-c1),
-    0 0 22px var(--il-c1);
-}
-
-.il-orbit-2 {
-  inset: -56px;
-  animation-duration: 11s;
-  animation-direction: reverse;
-}
-
-.il-orbit-2 i {
-  width: 6px;
-  height: 6px;
-  margin-left: -3px;
-  background: var(--il-c3);
-  box-shadow:
-    0 0 10px var(--il-c3),
-    0 0 20px var(--il-c3);
-}
-
-.il-orbit-3 {
-  inset: 15px;
-  animation-duration: 5s;
-}
-
-.il-orbit-3 i {
-  width: 5px;
-  height: 5px;
-  margin-left: -2.5px;
-  background: var(--il-c4);
-  box-shadow:
-    0 0 8px var(--il-c4),
-    0 0 16px var(--il-c4);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--il-c1) 55%, transparent);
+  animation: ilScan 3.2s ease-in-out infinite;
 }
 
 .initial-loader-lottie {
@@ -2573,15 +2512,50 @@ a {
   }
 }
 
-@keyframes ilBreathe {
+@keyframes ilFrameFloat {
   0%,
   100% {
-    transform: scale(0.94);
-    opacity: 0.7;
+    transform: translateY(0);
   }
   50% {
-    transform: scale(1.06);
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes ilFrameTurn {
+  from {
+    transform: rotate(42deg);
+  }
+  to {
+    transform: rotate(48deg);
+  }
+}
+
+@keyframes ilCornerPulse {
+  0%,
+  100% {
+    opacity: 0.62;
+  }
+  50% {
     opacity: 1;
+  }
+}
+
+@keyframes ilScan {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  22% {
+    opacity: 0.75;
+  }
+  78% {
+    opacity: 0.42;
+    transform: translateY(var(--il-scan-distance));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--il-scan-distance));
   }
 }
 
@@ -2631,7 +2605,16 @@ a {
   .initial-loader-animation {
     width: 100px;
     height: 100px;
-    margin: 36px auto 56px;
+    margin: 24px auto 34px;
+  }
+
+  .initial-loader-frame-2 {
+    inset: 19px;
+  }
+
+  .initial-loader-corner {
+    width: 14px;
+    height: 14px;
   }
   .initial-loader-chips {
     display: none;
@@ -5085,94 +5068,94 @@ a {
 }
 
 /* =========================================================
-   OPENING REVEAL (balloons popping outward from the center)
-   Only transform / opacity are animated: no masks, no filters.
+   OPENING REVEAL (a clean, diagonal blue light sweep)
+   Only transform is animated for a smooth, lightweight transition.
 ========================================================= */
 .portal {
-  --cu-bg: #050b14;
-  --cu-c1: #58d8ff;
-  --cu-c2: #7469ff;
-  --cu-c3: #ff8eea;
-  --cu-c4: #72f2cb;
-  --bubble-size: calc(100vw / var(--cols) + 100vh / var(--rows));
-
   position: fixed;
   inset: 0;
   z-index: 9999;
-  display: grid;
-  grid-template-columns: repeat(var(--cols), 1fr);
-  grid-template-rows: repeat(var(--rows), 1fr);
   overflow: hidden;
-  direction: ltr;
-  contain: strict;
+  pointer-events: none;
+  isolation: isolate;
+  background:
+    linear-gradient(
+      112deg,
+      transparent 18%,
+      rgba(28, 150, 222, 0.08) 48%,
+      transparent 78%
+    ),
+    linear-gradient(135deg, #071321 0%, #0a1b30 48%, #061225 100%);
+  transform: translate3d(0, 0, 0);
+  transform-origin: center;
+  will-change: transform;
+  animation: portalCurtainExit 1.46s cubic-bezier(0.77, 0, 0.175, 1) forwards;
+}
+
+.portal-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.3;
+  background-image:
+    linear-gradient(rgba(93, 207, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(93, 207, 255, 0.07) 1px, transparent 1px);
+  background-size: 54px 54px;
+}
+
+.portal::after {
+  content: "";
+  position: absolute;
+  top: -8%;
+  bottom: -8%;
+  left: 0;
+  width: clamp(3px, 0.4vw, 6px);
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(74, 197, 255, 0.35) 18%,
+    #c8f6ff 50%,
+    rgba(52, 169, 255, 0.6) 82%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 18px rgba(65, 190, 255, 0.75),
+    0 0 54px rgba(34, 141, 244, 0.38);
 }
 
 .app.light .portal {
-  --cu-bg: #f4f7fc;
-  --cu-c1: #0b8fc2;
-  --cu-c2: #5a49d6;
-  --cu-c3: #d6489f;
-  --cu-c4: #0c9a7e;
-}
-
-.bubble-cell {
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-}
-
-.bubble {
-  --bc: var(--cu-c1);
-
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: var(--bubble-size);
-  height: var(--bubble-size);
-  translate: -50% -50%;
-  border-radius: 50%;
-  background: var(--cu-bg);
-  transform-origin: center;
-  animation: bubblePop 0.72s linear var(--delay, 0ms) forwards;
-}
-
-.bubble.tone-1 {
-  --bc: var(--cu-c2);
-}
-.bubble.tone-2 {
-  --bc: var(--cu-c3);
-}
-.bubble.tone-3 {
-  --bc: var(--cu-c4);
-}
-
-/* soft glossy rim, only visible while a balloon is inflating / popping */
-.bubble::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  opacity: 0;
   background:
-    radial-gradient(
-      circle at 30% 26%,
-      color-mix(in srgb, #fff 55%, transparent) 0 6%,
-      transparent 18%
+    linear-gradient(
+      112deg,
+      transparent 18%,
+      rgba(49, 166, 223, 0.08) 48%,
+      transparent 78%
     ),
-    radial-gradient(
-      circle,
-      transparent 58%,
-      color-mix(in srgb, var(--bc) 38%, transparent) 100%
-    );
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--bc) 70%, transparent);
-  animation: bubbleRim 0.72s linear var(--delay, 0ms) forwards;
+    linear-gradient(135deg, #eaf8ff 0%, #d6f0ff 48%, #f3f8ff 100%);
+}
+
+.app.light .portal-grid {
+  opacity: 0.4;
+  background-image:
+    linear-gradient(rgba(15, 117, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 117, 184, 0.08) 1px, transparent 1px);
+}
+
+.app.light .portal::after {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(18, 131, 204, 0.35) 18%,
+    #ffffff 50%,
+    rgba(18, 131, 204, 0.55) 82%,
+    transparent 100%
+  );
 }
 
 .app.is-revealing .navbar {
   animation: navDrop 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards;
 }
 
-/* hero content rises in as the balloons pop */
+/* Hero content rises in as the light sweep reveals the page. */
 .hero-left.in-view > * {
   animation: heroRise 0.95s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
@@ -5203,32 +5186,9 @@ a {
 /* =========================================================
    KEYFRAMES
 ========================================================= */
-@keyframes bubblePop {
-  0% {
-    scale: 1;
-    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  30% {
-    scale: 1.1;
-    animation-timing-function: cubic-bezier(0.55, 0, 0.8, 0.35);
-  }
-  100% {
-    scale: 0;
-  }
-}
-
-@keyframes bubbleRim {
-  0% {
-    opacity: 0;
-  }
-  18% {
-    opacity: 1;
-  }
-  70% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
+@keyframes portalCurtainExit {
+  to {
+    transform: translate3d(108%, 0, 0) skewX(-7deg);
   }
 }
 
@@ -5282,12 +5242,6 @@ a {
         0
       )
       scale(1.65) rotate(var(--star-rotation, 0deg));
-  }
-}
-
-@keyframes loaderRingSpin {
-  to {
-    transform: rotate(360deg);
   }
 }
 
