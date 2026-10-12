@@ -28,12 +28,10 @@
           <span class="il-blob il-blob-2"></span>
           <span class="il-blob il-blob-3"></span>
         </div>
-        <div class="initial-loader-grid" aria-hidden="true"></div>
 
         <div class="initial-loader-center">
           <div class="initial-loader-animation" aria-hidden="true">
             <span class="initial-loader-frame initial-loader-frame-1"></span>
-            <span class="initial-loader-frame initial-loader-frame-2"></span>
 
             <span class="initial-loader-corner corner-tl"></span>
             <span class="initial-loader-corner corner-tr"></span>
@@ -74,9 +72,7 @@
     <!-- =========================================================
          OPENING REVEAL (runs right after the loader finishes)
     ========================================================== -->
-    <div v-if="isRevealing" class="portal" aria-hidden="true">
-      <span class="portal-grid"></span>
-    </div>
+    <div v-if="isRevealing" class="portal" aria-hidden="true"></div>
 
     <div v-if="trailEnabled" class="mouse-trail-layer" aria-hidden="true">
       <span
@@ -2227,23 +2223,6 @@ a {
   opacity: 0.4;
 }
 
-.initial-loader-grid {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  opacity: 0.55;
-  background-image:
-    linear-gradient(var(--il-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--il-grid) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(circle at center, #000 0%, transparent 74%);
-  -webkit-mask-image: radial-gradient(
-    circle at center,
-    #000 0%,
-    transparent 74%
-  );
-}
-
 .initial-loader-center {
   position: relative;
   z-index: 2;
@@ -2284,15 +2263,6 @@ a {
     inset 0 0 28px color-mix(in srgb, var(--il-c1) 5%, transparent),
     0 0 34px color-mix(in srgb, var(--il-c1) 8%, transparent);
   animation: ilFrameFloat 4.6s ease-in-out infinite;
-}
-
-.initial-loader-frame-2 {
-  inset: 32px;
-  border: 1px solid color-mix(in srgb, var(--il-c2) 42%, transparent);
-  border-radius: 19px;
-  transform: rotate(45deg);
-  opacity: 0.6;
-  animation: ilFrameTurn 9s ease-in-out infinite alternate;
 }
 
 .initial-loader-corner {
@@ -2522,15 +2492,6 @@ a {
   }
 }
 
-@keyframes ilFrameTurn {
-  from {
-    transform: rotate(42deg);
-  }
-  to {
-    transform: rotate(48deg);
-  }
-}
-
 @keyframes ilCornerPulse {
   0%,
   100% {
@@ -2606,10 +2567,6 @@ a {
     width: 100px;
     height: 100px;
     margin: 24px auto 34px;
-  }
-
-  .initial-loader-frame-2 {
-    inset: 19px;
   }
 
   .initial-loader-corner {
@@ -5092,16 +5049,6 @@ a {
   animation: portalCurtainExit 1.46s cubic-bezier(0.77, 0, 0.175, 1) forwards;
 }
 
-.portal-grid {
-  position: absolute;
-  inset: 0;
-  opacity: 0.3;
-  background-image:
-    linear-gradient(rgba(93, 207, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(93, 207, 255, 0.07) 1px, transparent 1px);
-  background-size: 54px 54px;
-}
-
 .portal::after {
   content: "";
   position: absolute;
@@ -5131,13 +5078,6 @@ a {
       transparent 78%
     ),
     linear-gradient(135deg, #eaf8ff 0%, #d6f0ff 48%, #f3f8ff 100%);
-}
-
-.app.light .portal-grid {
-  opacity: 0.4;
-  background-image:
-    linear-gradient(rgba(15, 117, 184, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 117, 184, 0.08) 1px, transparent 1px);
 }
 
 .app.light .portal::after {
