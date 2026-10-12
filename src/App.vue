@@ -4,7 +4,10 @@
     :class="[
       theme,
       isFa ? 'lang-fa' : 'lang-en',
-      { 'is-loading': isInitialLoading },
+      {
+        'is-loading': isInitialLoading || isRevealing,
+        'is-revealing': isRevealing,
+      },
     ]"
     :dir="isFa ? 'rtl' : 'ltr'"
     :lang="isFa ? 'fa' : 'en'"
@@ -20,22 +23,32 @@
         aria-live="polite"
         :aria-label="isFa ? 'در حال آماده‌سازی سایت' : 'Initializing website'"
       >
+        <div class="initial-loader-aurora" aria-hidden="true">
+          <span class="il-blob il-blob-1"></span>
+          <span class="il-blob il-blob-2"></span>
+          <span class="il-blob il-blob-3"></span>
+        </div>
         <div class="initial-loader-grid" aria-hidden="true"></div>
 
         <div class="initial-loader-center">
           <div class="initial-loader-animation" aria-hidden="true">
+            <span class="initial-loader-halo"></span>
             <span class="initial-loader-ring"></span>
             <span class="initial-loader-ring initial-loader-ring-2"></span>
             <span class="initial-loader-ring initial-loader-ring-3"></span>
             <span class="initial-loader-ring initial-loader-ring-4"></span>
+
+            <span class="il-orbit il-orbit-1"><i></i></span>
+            <span class="il-orbit il-orbit-2"><i></i></span>
+            <span class="il-orbit il-orbit-3"><i></i></span>
+
             <div
               ref="loaderLottieContainer"
               class="initial-loader-lottie"
             ></div>
           </div>
 
-          <h2>{{ loaderTitle }}</h2>
-
+          <h2 class="initial-loader-title">{{ loaderTitle }}</h2>
           <div class="initial-loader-progress-row">
             <div
               ref="loaderProgressEl"
@@ -51,13 +64,23 @@
               >0%</strong
             >
           </div>
+
+          <div class="initial-loader-chips" aria-hidden="true">
+            <span v-for="item in TECHS" :key="item">{{ item }}</span>
+          </div>
         </div>
       </div>
     </Transition>
 
-    <a class="skip-link" href="#main-content">
-      {{ isFa ? "پرش به محتوای اصلی" : "Skip to main content" }}
-    </a>
+    <!-- =========================================================
+         OPENING REVEAL (runs right after the loader finishes)
+    ========================================================== -->
+    <canvas
+      v-if="isRevealing"
+      ref="portalCanvas"
+      class="portal-canvas"
+      aria-hidden="true"
+    ></canvas>
 
     <div v-if="trailEnabled" class="mouse-trail-layer" aria-hidden="true">
       <span
@@ -403,7 +426,7 @@
                   <span class="lottie-caption-dot" aria-hidden="true"></span>
 
                   <div>
-                    <strong>{{ t.hero.name }}</strong>
+                    <strong>{{ t.brand }}</strong>
                     <small>{{ t.hero.role }}</small>
                   </div>
                 </div>
@@ -738,19 +761,72 @@
 
               <div class="contact-actions">
                 <a
-                  :href="`https://mail.google.com/mail/?view=cm&fs=1&to=${CONTACT_EMAIL}`"
+                  :href="CONTACT_TELEGRAM_URL"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="premium-btn primary"
+                  class="contact-link contact-link-telegram"
+                  :aria-label="t.contact.telegramBtn"
                 >
-                  <span class="btn-liquid" aria-hidden="true"></span>
-                  <span class="btn-content">{{ t.contact.emailBtn }}</span>
-                  <span class="btn-arrow" aria-hidden="true">↗</span>
+                  <span class="contact-link-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path
+                        d="M21.45 4.05 18.3 19.1c-.24 1.08-.87 1.35-1.76.84l-4.86-3.58-2.34 2.25c-.26.26-.48.48-.98.48l.35-4.95 9.02-8.15c.39-.35-.09-.54-.6-.19L6.02 12.94 1.2 11.43c-1.05-.33-1.07-1.05.22-1.57L20.28 2.5c.88-.32 1.65.21 1.17 1.55Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </span>
+
+                  <span class="contact-link-text">
+                    <small>{{ t.contact.telegramHint }}</small>
+                    <strong dir="ltr">{{ CONTACT_TELEGRAM_HANDLE }}</strong>
+                  </span>
+
+                  <span class="contact-link-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                      <path
+                        d="M7 17 17 7M9 7h8v8"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
                 </a>
 
-                <a href="#about" class="premium-btn ghost">
-                  <span class="btn-content">{{ t.contact.resumeBtn }}</span>
-                  <span class="btn-arrow" aria-hidden="true">→</span>
+                <a
+                  :href="`tel:${CONTACT_PHONE.replace(/[^\d+]/g, '')}`"
+                  class="contact-link contact-link-phone"
+                  :aria-label="`${t.contact.phoneBtn}${CONTACT_PHONE}`"
+                >
+                  <span class="contact-link-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                      <path
+                        d="M7.1 3.8 9.35 7.6c.35.6.26 1.18-.2 1.64l-1.3 1.3a14.4 14.4 0 0 0 5.62 5.62l1.3-1.3c.46-.46 1.04-.55 1.64-.2l3.8 2.25c.68.4.85 1.1.48 1.8l-.82 1.54c-.38.72-1.1 1.08-1.9 1.02C10.1 20.6 3.4 13.9 2.73 6.03c-.06-.8.3-1.52 1.02-1.9l1.54-.82c.7-.37 1.4-.2 1.8.49Z"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
+
+                  <span class="contact-link-text">
+                    <small>{{ t.contact.phoneHint }}</small>
+                    <strong dir="ltr">{{ CONTACT_PHONE }}</strong>
+                  </span>
+
+                  <span class="contact-link-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                      <path
+                        d="M7 17 17 7M9 7h8v8"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
                 </a>
               </div>
             </div>
@@ -807,7 +883,10 @@ const NAV_ITEMS = [
   "contact",
 ];
 const TECHS = ["Vue.js", "Flutter", "JavaScript", "Dart", "Go", "UI/UX"];
-const CONTACT_EMAIL = "arian.kalantari@yamil.com";
+// Replace these two values with your real Telegram username and phone number.
+const CONTACT_TELEGRAM_URL = "https://t.me/Ariankdev";
+const CONTACT_PHONE = "+98XXXXXXXXXX";
+const CONTACT_TELEGRAM_HANDLE = "@Ariankdev";
 const SKILL_META = [
   { name: "Vue.js", icon: "🟢" },
   { name: "Flutter", icon: "🔵" },
@@ -891,6 +970,8 @@ const ANIMATIONS = {
 const MIN_LOADING_MS = 3800;
 const MAX_LOADING_MS = 6500;
 
+const portalCanvas = ref(null);
+
 /* =========================================================
    TRANSLATIONS
 ========================================================= */
@@ -909,9 +990,9 @@ const translations = {
     loader: "تبدیل ایده‌ها به کد",
     hero: {
       badge: "توسعه‌دهنده فرانت‌اند، موبایل و تجربه کاربری",
-      title1: "سلام، من",
-      name: "آرین کلانتری",
-      title2: "هستم",
+      title1: "توسعه‌دهنده‌ی",
+      name: "محصولات دیجیتال",
+      title2: "با تمرکز بر طراحی و تجربه کاربری",
       typingPrefix: "مسلط به ",
       description:
         "من روی ساخت تجربه‌های دیجیتال شیک، سریع، روان و کاربرمحور تمرکز دارم؛ از رابط‌های مدرن وب با Vue گرفته تا اپلیکیشن‌های Flutter، منطق با JavaScript و Dart، کار با Go و طراحی حرفه‌ای UI/UX.",
@@ -1033,8 +1114,10 @@ const translations = {
       tag: "ارتباط با من",
       title: "برای همکاری در پروژه‌های خود در تماس باشید",
       desc: "اگر به یک وب‌سایت شیک، رابط کاربری مدرن، اپ Flutter یا طراحی UI/UX نیاز دارید، خوشحال می‌شوم همکاری کنیم.",
-      emailBtn: "ارسال ایمیل",
-      resumeBtn: "مشاهده اطلاعات بیشتر",
+      telegramBtn: "تلگرام",
+      phoneBtn: "تماس تلفنی: ",
+      telegramHint: "پیام مستقیم در تلگرام",
+      phoneHint: "تماس تلفنی",
     },
     seo: {
       title: "آرین کلانتری | توسعه‌دهنده Frontend، Flutter، Go و UI/UX",
@@ -1058,9 +1141,9 @@ const translations = {
     loader: "Where ideas meet code",
     hero: {
       badge: "Frontend, Mobile & User Experience Developer",
-      title1: "Hi, I am",
-      name: "Arian Kalantari",
-      title2: "",
+      title1: "Digital Product",
+      name: "Developer",
+      title2: "Focused on Design & User Experience",
       typingPrefix: "Skilled in ",
       description:
         "I focus on crafting elegant, fast, smooth and user-centered digital experiences — from modern web interfaces with Vue to Flutter apps, logic with JavaScript and Dart, working with Go, and professional UI/UX design.",
@@ -1192,8 +1275,10 @@ const translations = {
       tag: "CONTACT",
       title: "Let's work together on polished digital products",
       desc: "If you need a beautiful website, modern UI, Flutter app or UI/UX design, I would be happy to collaborate.",
-      emailBtn: "Send Email",
-      resumeBtn: "More Information",
+      telegramBtn: "Telegram",
+      phoneBtn: "Call: ",
+      telegramHint: "Message me on Telegram",
+      phoneHint: "Call directly",
     },
     seo: {
       title: "Arian Kalantari | Frontend, Flutter, Go & UI/UX Developer",
@@ -1228,6 +1313,7 @@ const lang = ref(readPref("ak-lang", ["fa", "en"], "fa"));
 const theme = ref(readPref("ak-theme", ["dark", "light"], "dark"));
 const menuOpen = ref(false);
 const isInitialLoading = ref(true);
+const isRevealing = ref(false);
 const activeFilter = ref("all");
 const displayedWord = ref("");
 const trailEnabled = ref(false);
@@ -1809,11 +1895,142 @@ const startPage = () => {
   setupReveal();
 };
 
+/* Opening reveal: a glowing circular portal expands from the center.
+   It is drawn on one canvas (a single GPU layer), so it stays smooth:
+   no CSS masks, no filters, no per-frame layout. */
+const PORTAL_MS = 1500;
+let portalFrame = 0;
+
+const runPortal = () => {
+  const canvas = portalCanvas.value;
+  const ctx = canvas?.getContext("2d");
+
+  if (!ctx) return;
+
+  const TAU = Math.PI * 2;
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const dark = theme.value === "dark";
+  const bg = dark ? "#050b14" : "#f4f7fc";
+  const cols = dark
+    ? ["#58d8ff", "#7469ff", "#ff8eea", "#72f2cb"]
+    : ["#0b8fc2", "#5a49d6", "#d6489f", "#0c9a7e"];
+  const cx = w / 2;
+  const cy = h / 2;
+  const maxR = Math.hypot(cx, cy) + 60;
+  const hasConic = typeof ctx.createConicGradient === "function";
+  const sparks = Array.from({ length: 28 }, () => ({
+    a: Math.random() * TAU,
+    speed: 0.35 + Math.random() * 0.9,
+    size: 1.2 + Math.random() * 2.6,
+    off: (Math.random() - 0.5) * 16,
+    color: cols[Math.floor(Math.random() * cols.length)],
+  }));
+  const ease = (t) => (t < 0.5 ? 8 * t ** 4 : 1 - (-2 * t + 2) ** 4 / 2);
+  const startedAt = performance.now();
+
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  ctx.scale(dpr, dpr);
+
+  const ring = (radius, angle, width, alpha) => {
+    if (radius < 1) return;
+
+    let style = cols[0];
+
+    if (hasConic) {
+      style = ctx.createConicGradient(angle, cx, cy);
+      cols.forEach((color, i) => style.addColorStop(i / cols.length, color));
+      style.addColorStop(1, cols[0]);
+    }
+
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = style;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, TAU);
+    ctx.stroke();
+  };
+
+  const draw = (now) => {
+    const t = Math.min(1, (now - startedAt) / PORTAL_MS);
+    const r = ease(t) * maxR;
+    const fade =
+      t < 0.06 ? t / 0.06 : t > 0.78 ? Math.max(0, (1 - t) / 0.22) : 1;
+    const spin = t * TAU * 1.25;
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+
+    /* glow layers, then the crisp rotating gradient ring */
+    ring(r, spin, 46, 0.08 * fade);
+    ring(r, spin, 22, 0.16 * fade);
+    ring(r, spin, 9, 0.34 * fade);
+    ring(r, spin, 3, fade);
+    ring(r * 0.9, -spin * 1.3, 1.6, 0.55 * fade);
+    ring(r * 0.8, spin * 0.8, 1, 0.3 * fade);
+
+    /* sparks traveling along the leading edge */
+    sparks.forEach((spark) => {
+      const angle = spark.a + t * TAU * spark.speed;
+      const x = cx + Math.cos(angle) * (r + spark.off);
+      const y = cy + Math.sin(angle) * (r + spark.off);
+
+      ctx.fillStyle = spark.color;
+      ctx.globalAlpha = 0.18 * fade;
+      ctx.beginPath();
+      ctx.arc(x, y, spark.size * 3.2, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 0.95 * fade;
+      ctx.beginPath();
+      ctx.arc(x, y, spark.size, 0, TAU);
+      ctx.fill();
+    });
+
+    ctx.globalAlpha = 1;
+
+    if (t < 1) portalFrame = requestAnimationFrame(draw);
+  };
+
+  portalFrame = requestAnimationFrame(draw);
+};
+
+/* The page content starts animating in while the portal is still small. */
+const REVEAL_PAGE_START_MS = 600;
+const REVEAL_TOTAL_MS = 1750;
+let revealTimers = [];
+
 const finishInitialLoading = () => {
   if (!isInitialLoading.value) return;
 
+  if (prefersReducedMotion) {
+    isInitialLoading.value = false;
+    nextTick(startPage);
+
+    return;
+  }
+
+  isRevealing.value = true;
   isInitialLoading.value = false;
-  nextTick(startPage);
+  nextTick(runPortal);
+  window.scrollTo(0, 0);
+
+  revealTimers = [
+    window.setTimeout(startPage, REVEAL_PAGE_START_MS),
+    window.setTimeout(() => {
+      isRevealing.value = false;
+    }, REVEAL_TOTAL_MS),
+  ];
 };
 
 const runLoader = () => {
@@ -1868,6 +2085,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   clearTimeout(typingTimeout);
   cancelAnimationFrame(loaderFrame);
+  revealTimers.forEach((id) => clearTimeout(id));
+  cancelAnimationFrame(portalFrame);
 
   destroyLoaderLottie();
 
@@ -1931,21 +2150,6 @@ body {
 
 a {
   text-decoration: none;
-}
-
-button,
-input,
-textarea,
-select {
-  font-family: inherit;
-}
-
-img,
-svg,
-video,
-canvas {
-  max-width: 100%;
-  display: block;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2040,29 +2244,23 @@ canvas {
   display: block;
 }
 
-.skip-link {
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  z-index: 9999;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: var(--primary);
-  color: #07111f;
-  font-size: 12px;
-  font-weight: 800;
-  transform: translateY(-150%);
-  transition: transform 0.2s ease;
-}
-
-.skip-link:focus {
-  transform: translateY(0);
-}
-
 /* =========================================================
-   INITIAL LOADER
+   INITIAL LOADER (v2)
 ========================================================= */
 .initial-loader {
+  --il-bg: #050b14;
+  --il-text: #f3f8ff;
+  --il-soft: #9fb2cc;
+  --il-c1: #58d8ff;
+  --il-c2: #7469ff;
+  --il-c3: #ff8eea;
+  --il-c4: #72f2cb;
+  --il-c5: #ffd36b;
+  --il-track: rgba(120, 146, 176, 0.16);
+  --il-grid: rgba(88, 216, 255, 0.06);
+  --il-chip-bg: rgba(255, 255, 255, 0.05);
+  --il-chip-border: rgba(255, 255, 255, 0.1);
+
   position: fixed;
   inset: 0;
   z-index: 10000;
@@ -2070,34 +2268,95 @@ canvas {
   place-items: center;
   overflow: hidden;
   isolation: isolate;
-  color: #fff;
-  background:
-    radial-gradient(
-      circle at 50% 42%,
-      rgba(88, 216, 255, 0.12),
-      transparent 55%
-    ),
-    radial-gradient(
-      circle at 82% 88%,
-      rgba(116, 105, 255, 0.12),
-      transparent 50%
-    ),
-    #050b14;
+  color: var(--il-text);
+  background: var(--il-bg);
+}
+
+.app.light .initial-loader {
+  --il-bg: #f4f7fc;
+  --il-text: #0e1626;
+  --il-soft: #51627a;
+  --il-c1: #0b8fc2;
+  --il-c2: #5a49d6;
+  --il-c3: #d6489f;
+  --il-c4: #0c9a7e;
+  --il-c5: #e08a00;
+  --il-track: rgba(15, 23, 42, 0.1);
+  --il-grid: rgba(6, 120, 170, 0.07);
+  --il-chip-bg: rgba(255, 255, 255, 0.8);
+  --il-chip-border: rgba(15, 23, 42, 0.09);
+}
+
+.initial-loader-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  overflow: hidden;
+}
+
+.il-blob {
+  position: absolute;
+  width: 62vmax;
+  height: 62vmax;
+  border-radius: 50%;
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.il-blob-1 {
+  top: -28vmax;
+  left: -20vmax;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--il-c1) 38%, transparent),
+    transparent 66%
+  );
+  animation: ilBlob 14s ease-in-out infinite alternate;
+}
+
+.il-blob-2 {
+  right: -24vmax;
+  bottom: -30vmax;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--il-c2) 40%, transparent),
+    transparent 66%
+  );
+  animation: ilBlob 17s ease-in-out infinite alternate-reverse;
+}
+
+.il-blob-3 {
+  top: 28%;
+  left: 38%;
+  width: 40vmax;
+  height: 40vmax;
+  opacity: 0.32;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--il-c3) 34%, transparent),
+    transparent 66%
+  );
+  animation: ilBlob 20s ease-in-out infinite alternate;
+}
+
+.app.light .il-blob {
+  opacity: 0.4;
 }
 
 .initial-loader-grid {
   position: absolute;
   inset: 0;
-  opacity: 0.3;
+  z-index: -2;
+  opacity: 0.55;
   background-image:
-    linear-gradient(rgba(88, 216, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(88, 216, 255, 0.055) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: radial-gradient(circle at center, #000 0%, transparent 78%);
+    linear-gradient(var(--il-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--il-grid) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at center, #000 0%, transparent 74%);
   -webkit-mask-image: radial-gradient(
     circle at center,
     #000 0%,
-    transparent 78%
+    transparent 74%
   );
 }
 
@@ -2118,38 +2377,50 @@ canvas {
   place-items: center;
 }
 
+.initial-loader-halo {
+  position: absolute;
+  inset: -26px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--il-c1) 30%, transparent),
+    color-mix(in srgb, var(--il-c2) 14%, transparent) 46%,
+    transparent 70%
+  );
+  animation: ilBreathe 3.4s ease-in-out infinite;
+}
+
 .initial-loader-ring {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1px solid rgba(157, 225, 255, 0.11);
-  border-top-color: #58d8ff;
-  border-right-color: rgba(88, 216, 255, 0.75);
-  border-bottom-color: rgba(114, 242, 203, 0.24);
+  border: 1.5px solid color-mix(in srgb, var(--il-c1) 14%, transparent);
+  border-top-color: var(--il-c1);
+  border-right-color: color-mix(in srgb, var(--il-c1) 70%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--il-c4) 28%, transparent);
   animation: loaderRingSpin 4.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
 .initial-loader-ring-2 {
   inset: 15px;
-  border-color: rgba(116, 105, 255, 0.1);
-  border-bottom-color: #7469ff;
-  border-left-color: rgba(116, 105, 255, 0.62);
+  border-color: color-mix(in srgb, var(--il-c2) 14%, transparent);
+  border-bottom-color: var(--il-c2);
+  border-left-color: color-mix(in srgb, var(--il-c2) 62%, transparent);
   animation-duration: 6.6s;
   animation-direction: reverse;
 }
 
-/* big multicolor rings: conic gradient cut into a thin ring by a static mask */
 .initial-loader-ring-3,
 .initial-loader-ring-4 {
   border: 0;
   background: conic-gradient(
     from 0deg,
-    #58d8ff,
-    #7469ff,
-    #ff8eea,
-    #ffd36b,
-    #72f2cb,
-    #58d8ff
+    var(--il-c1),
+    var(--il-c2),
+    var(--il-c3),
+    var(--il-c5),
+    var(--il-c4),
+    var(--il-c1)
   );
   -webkit-mask: radial-gradient(
     farthest-side,
@@ -2166,7 +2437,7 @@ canvas {
 
 .initial-loader-ring-3 {
   inset: -30px;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .initial-loader-ring-4 {
@@ -2186,6 +2457,57 @@ canvas {
   animation-direction: reverse;
 }
 
+.il-orbit {
+  position: absolute;
+  inset: -30px;
+  animation: loaderRingSpin 7s linear infinite;
+}
+
+.il-orbit i {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--il-c1);
+  box-shadow:
+    0 0 10px var(--il-c1),
+    0 0 22px var(--il-c1);
+}
+
+.il-orbit-2 {
+  inset: -56px;
+  animation-duration: 11s;
+  animation-direction: reverse;
+}
+
+.il-orbit-2 i {
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  background: var(--il-c3);
+  box-shadow:
+    0 0 10px var(--il-c3),
+    0 0 20px var(--il-c3);
+}
+
+.il-orbit-3 {
+  inset: 15px;
+  animation-duration: 5s;
+}
+
+.il-orbit-3 i {
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  background: var(--il-c4);
+  box-shadow:
+    0 0 8px var(--il-c4),
+    0 0 16px var(--il-c4);
+}
+
 .initial-loader-lottie {
   position: relative;
   z-index: 2;
@@ -2193,17 +2515,30 @@ canvas {
   height: 68%;
 }
 
-.initial-loader-center h2 {
+.initial-loader-title {
   margin: 0;
-  color: #fff;
-  font-size: clamp(16px, 2vw, 21px);
+  font-size: clamp(18px, 2.4vw, 25px);
   line-height: 1.4;
   font-weight: 850;
   letter-spacing: 0.02em;
+  color: transparent;
+  background: linear-gradient(
+    100deg,
+    var(--il-text) 0%,
+    var(--il-c1) 30%,
+    var(--il-c2) 55%,
+    var(--il-c3) 75%,
+    var(--il-text) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ilTitleFlow 5s linear infinite;
 }
 
-.app.lang-fa .initial-loader-center h2 {
+.app.lang-fa .initial-loader-title {
   letter-spacing: 0;
+  line-height: 1.6;
 }
 
 .initial-loader-progress-row {
@@ -2211,72 +2546,199 @@ canvas {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  width: min(420px, 100%);
-  margin: 20px auto 12px;
+  width: min(440px, 100%);
+  margin: 18px auto;
 }
 
 .initial-loader-progress {
   direction: ltr;
+  position: relative;
   width: 100%;
-  height: 7px;
+  height: 8px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(120, 146, 176, 0.15);
-  border: 1px solid rgba(88, 216, 255, 0.11);
+  background: var(--il-track);
+  border: 1px solid color-mix(in srgb, var(--il-c1) 16%, transparent);
 }
 
 .initial-loader-progress span {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   border-radius: inherit;
-  background: linear-gradient(90deg, #58d8ff, #72f2cb, #7469ff);
+  background: linear-gradient(90deg, #176fce 0%, #258fe6 52%, #62c5f5 100%);
+  background-size: 100% 100%;
+  box-shadow: 0 0 12px rgba(37, 143, 230, 0.38);
   transform: scaleX(0);
   transform-origin: left center;
   will-change: transform;
 }
 
+.initial-loader-progress span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: ilShine 1.6s ease-in-out infinite;
+}
+
 .initial-loader-percent {
-  min-width: 44px;
-  color: #fff;
+  min-width: 46px;
+  color: var(--il-text);
+  font-family: var(--font-mono);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   text-align: end;
 }
 
+.initial-loader-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.initial-loader-chips span {
+  padding: 6px 12px;
+  border: 1px solid var(--il-chip-border);
+  border-radius: 999px;
+  background: var(--il-chip-bg);
+  color: var(--il-soft);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: ilChipIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.initial-loader-chips span:nth-child(1) {
+  animation-delay: 0.3s;
+}
+.initial-loader-chips span:nth-child(2) {
+  animation-delay: 0.45s;
+}
+.initial-loader-chips span:nth-child(3) {
+  animation-delay: 0.6s;
+}
+.initial-loader-chips span:nth-child(4) {
+  animation-delay: 0.75s;
+}
+.initial-loader-chips span:nth-child(5) {
+  animation-delay: 0.9s;
+}
+.initial-loader-chips span:nth-child(6) {
+  animation-delay: 1.05s;
+}
+
 .initial-loader-leave-active {
-  transition: opacity 0.4s ease;
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.55s ease;
 }
 
 .initial-loader-leave-to {
   opacity: 0;
+  transform: scale(1.04);
+  filter: blur(6px);
+}
+
+@keyframes ilBlob {
+  to {
+    transform: translate(6vmax, 5vmax) scale(1.12);
+  }
+}
+
+@keyframes ilBreathe {
+  0%,
+  100% {
+    transform: scale(0.94);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes ilTitleFlow {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+@keyframes ilBarFlow {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes ilShine {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ilChipIn {
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (max-width: 420px) {
   .initial-loader-progress-row {
     gap: 9px;
   }
-
   .initial-loader-percent {
     min-width: 40px;
     font-size: 12px;
   }
-
   .initial-loader-progress {
     height: 6px;
   }
+  .initial-loader-chips span {
+    font-size: 10px;
+    padding: 5px 9px;
+  }
 }
 
-@media (max-height: 540px) {
+@media (max-height: 640px) {
   .initial-loader-animation {
     width: 100px;
     height: 100px;
+    margin: 36px auto 56px;
   }
-
+  .initial-loader-chips {
+    display: none;
+  }
   .initial-loader-center {
-    padding: 18px 22px;
+    padding: 14px 22px;
+  }
+}
+
+@media (max-width: 760px) {
+  .il-blob-3 {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .initial-loader-chips span {
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -3217,10 +3679,8 @@ canvas {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px 12px;
   margin: 0 0 18px;
   color: var(--text);
-  font-size: clamp(46px, 6vw, 84px);
   line-height: 1;
   font-weight: 850;
   letter-spacing: -0.04em;
@@ -3235,10 +3695,10 @@ canvas {
   color: transparent;
   background: linear-gradient(
     120deg,
-    #fff 0%,
-    #a8ecff 34%,
-    #968aff 67%,
-    #ddd8ff 100%
+    #e2edf8 0%,
+    #82abc9 36%,
+    #788bbd 68%,
+    #bac7df 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -3248,16 +3708,17 @@ canvas {
   background: linear-gradient(
     120deg,
     #101827 0%,
-    #119fd6 35%,
-    #6656db 70%,
+    #173f60 30%,
+    #205775 53%,
+    #354a78 76%,
     #101827 100%
   );
+
   -webkit-background-clip: text;
   background-clip: text;
 }
 
 .app.lang-fa .hero-title {
-  line-height: 1.32;
   letter-spacing: 0;
 }
 
@@ -3486,7 +3947,8 @@ canvas {
 .lottie-caption strong {
   display: block;
   color: #f5f8fd;
-  font-size: 14px;
+  font-family: var(--font-display);
+  font-size: 17px;
   font-weight: 800;
   line-height: 1.3;
 }
@@ -4450,10 +4912,176 @@ canvas {
 }
 
 .contact-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  max-width: 580px;
   margin-top: 30px;
+}
+
+.contact-link {
+  --lk-rgb: 88, 216, 255;
+
+  position: relative;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px;
+  overflow: hidden;
+  isolation: isolate;
+  text-align: start;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(var(--lk-rgb), 0.1),
+      rgba(var(--lk-rgb), 0.015) 62%
+    ),
+    var(--surface);
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.3s ease,
+    box-shadow 0.35s ease;
+}
+
+.contact-link-telegram {
+  --lk-rgb: 42, 171, 238;
+}
+
+.contact-link-phone {
+  --lk-rgb: 52, 211, 153;
+}
+
+.contact-link::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(var(--lk-rgb), 0.2) 50%,
+    transparent 70%
+  );
+  transform: translateX(-110%);
+  transition: transform 0.75s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.contact-link:hover,
+.contact-link:focus-visible {
+  transform: translateY(-4px);
+  border-color: rgba(var(--lk-rgb), 0.55);
+  box-shadow:
+    0 18px 38px rgba(var(--lk-rgb), 0.18),
+    0 0 0 1px rgba(var(--lk-rgb), 0.12);
+}
+
+.contact-link:hover::before,
+.contact-link:focus-visible::before {
+  transform: translateX(110%);
+}
+
+.contact-link-icon {
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  border-radius: 16px;
+  background: linear-gradient(
+    145deg,
+    rgb(var(--lk-rgb)),
+    color-mix(in srgb, rgb(var(--lk-rgb)) 55%, #4f46e5)
+  );
+  box-shadow:
+    0 10px 22px rgba(var(--lk-rgb), 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.contact-link-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.contact-link:hover .contact-link-icon,
+.contact-link:focus-visible .contact-link-icon {
+  transform: scale(1.06) rotate(-6deg);
+}
+
+.contact-link-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contact-link-text small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.contact-link-text strong {
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-link-arrow {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  color: var(--text-soft);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
+}
+
+.contact-link-arrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+.contact-link:hover .contact-link-arrow,
+.contact-link:focus-visible .contact-link-arrow {
+  color: #fff;
+  border-color: transparent;
+  background: rgb(var(--lk-rgb));
+  transform: rotate(45deg);
+}
+
+.app.light .contact-link:hover,
+.app.light .contact-link:focus-visible {
+  box-shadow:
+    0 18px 38px rgba(var(--lk-rgb), 0.22),
+    0 0 0 1px rgba(var(--lk-rgb), 0.14);
+}
+
+@media (max-width: 760px) {
+  .contact-link:hover,
+  .contact-link:focus-visible {
+    transform: none;
+  }
 }
 
 .contact-lottie-wrap {
@@ -4545,8 +5173,74 @@ canvas {
 }
 
 /* =========================================================
+   OPENING REVEAL (canvas portal, see runPortal in the script)
+========================================================= */
+.portal-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  pointer-events: all;
+}
+
+.app.is-revealing .navbar {
+  animation: navDrop 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.7s backwards;
+}
+
+/* hero content rises in as the portal opens */
+.hero-left.in-view > * {
+  animation: heroRise 0.95s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.hero-left.in-view > :nth-child(1) {
+  animation-delay: 0.05s;
+}
+.hero-left.in-view > :nth-child(2) {
+  animation-delay: 0.16s;
+}
+.hero-left.in-view > :nth-child(3) {
+  animation-delay: 0.27s;
+}
+.hero-left.in-view > :nth-child(4) {
+  animation-delay: 0.38s;
+}
+.hero-left.in-view > :nth-child(5) {
+  animation-delay: 0.49s;
+}
+.hero-left.in-view > :nth-child(6) {
+  animation-delay: 0.6s;
+}
+
+.hero-right.in-view .lottie-card {
+  animation: heroPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
+}
+
+/* =========================================================
    KEYFRAMES
 ========================================================= */
+@keyframes navDrop {
+  from {
+    opacity: 0;
+    transform: translateY(-26px);
+  }
+}
+
+@keyframes heroRise {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+}
+
+@keyframes heroPop {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.95);
+  }
+}
+
 @keyframes trailSpark {
   0% {
     opacity: 0;
