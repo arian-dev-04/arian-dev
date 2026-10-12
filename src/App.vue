@@ -75,12 +75,20 @@
     <!-- =========================================================
          OPENING REVEAL (runs right after the loader finishes)
     ========================================================== -->
-    <canvas
+    <div
       v-if="isRevealing"
-      ref="portalCanvas"
-      class="portal-canvas"
+      class="portal"
       aria-hidden="true"
-    ></canvas>
+      :style="{ '--cols': BUBBLE_COLS, '--rows': BUBBLE_ROWS }"
+    >
+      <span v-for="bubble in BUBBLES" :key="bubble.id" class="bubble-cell">
+        <i
+          class="bubble"
+          :class="`tone-${bubble.tone}`"
+          :style="{ '--delay': `${bubble.delay}ms` }"
+        ></i>
+      </span>
+    </div>
 
     <div v-if="trailEnabled" class="mouse-trail-layer" aria-hidden="true">
       <span
@@ -970,7 +978,22 @@ const ANIMATIONS = {
 const MIN_LOADING_MS = 3800;
 const MAX_LOADING_MS = 6500;
 
-const portalCanvas = ref(null);
+/* Opening reveal: a grid of overlapping "balloons" that pop from the center
+   outward (transform-only animation, so it stays smooth on any device). */
+const BUBBLE_COLS = 8;
+const BUBBLE_ROWS = 6;
+const BUBBLES = Array.from({ length: BUBBLE_COLS * BUBBLE_ROWS }, (_, i) => {
+  const col = i % BUBBLE_COLS;
+  const row = Math.floor(i / BUBBLE_COLS);
+  const dx = (col - (BUBBLE_COLS - 1) / 2) / (BUBBLE_COLS / 2);
+  const dy = (row - (BUBBLE_ROWS - 1) / 2) / (BUBBLE_ROWS / 2);
+
+  return {
+    id: i,
+    tone: i % 4,
+    delay: Math.round(60 + Math.hypot(dx, dy) * 560 + Math.random() * 110),
+  };
+});
 
 /* =========================================================
    TRANSLATIONS
@@ -1895,118 +1918,10 @@ const startPage = () => {
   setupReveal();
 };
 
-/* Opening reveal: a glowing circular portal expands from the center.
-   It is drawn on one canvas (a single GPU layer), so it stays smooth:
-   no CSS masks, no filters, no per-frame layout. */
-const PORTAL_MS = 1500;
-let portalFrame = 0;
-
-const runPortal = () => {
-  const canvas = portalCanvas.value;
-  const ctx = canvas?.getContext("2d", { desynchronized: true });
-
-  if (!ctx) return;
-
-  const TAU = Math.PI * 2;
-  const STOP_AT = 0.82; /* the hole already covers the whole screen here */
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const dark = theme.value === "dark";
-  const bg = dark ? "#050b14" : "#f4f7fc";
-  const cols = dark
-    ? ["#58d8ff", "#7469ff", "#ff8eea", "#72f2cb"]
-    : ["#0b8fc2", "#5a49d6", "#d6489f", "#0c9a7e"];
-  const cx = w / 2;
-  const cy = h / 2;
-  const maxR = Math.hypot(cx, cy) + 60;
-  const hasConic = typeof ctx.createConicGradient === "function";
-  const sparks = Array.from({ length: 20 }, () => ({
-    a: Math.random() * TAU,
-    speed: 0.35 + Math.random() * 0.9,
-    size: 1.2 + Math.random() * 2.4,
-    off: (Math.random() - 0.5) * 16,
-    color: cols[Math.floor(Math.random() * cols.length)],
-  }));
-  const ease = (t) => (t < 0.5 ? 8 * t ** 4 : 1 - (-2 * t + 2) ** 4 / 2);
-  const startedAt = performance.now();
-
-  canvas.width = Math.round(w * dpr);
-  canvas.height = Math.round(h * dpr);
-  ctx.scale(dpr, dpr);
-
-  const draw = (now) => {
-    const t = Math.min(1, (now - startedAt) / PORTAL_MS);
-
-    if (t >= STOP_AT) {
-      ctx.clearRect(0, 0, w, h);
-
-      return;
-    }
-
-    const r = ease(t) * maxR;
-    const fade = t < 0.06 ? t / 0.06 : Math.min(1, (STOP_AT - t) / 0.16);
-    const spin = t * TAU * 1.25;
-    let stroke = cols[0];
-
-    /* cover with a hole, in a single fill (no compositing modes) */
-    ctx.globalAlpha = 1;
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.rect(0, 0, w, h);
-    ctx.arc(cx, cy, r, 0, TAU);
-    ctx.fill("evenodd");
-
-    if (hasConic) {
-      stroke = ctx.createConicGradient(spin, cx, cy);
-      cols.forEach((color, i) => stroke.addColorStop(i / cols.length, color));
-      stroke.addColorStop(1, cols[0]);
-    }
-
-    /* one shared gradient: soft glow, bright core, thin inner echo */
-    ctx.strokeStyle = stroke;
-
-    [
-      [r, 20, 0.14],
-      [r, 8, 0.32],
-      [r, 3, 1],
-      [r * 0.9, 1.5, 0.5],
-    ].forEach(([radius, width, alpha]) => {
-      ctx.globalAlpha = alpha * fade;
-      ctx.lineWidth = width;
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, TAU);
-      ctx.stroke();
-    });
-
-    /* sparks traveling along the leading edge */
-    sparks.forEach((spark) => {
-      const angle = spark.a + t * TAU * spark.speed;
-      const x = cx + Math.cos(angle) * (r + spark.off);
-      const y = cy + Math.sin(angle) * (r + spark.off);
-
-      ctx.fillStyle = spark.color;
-      ctx.globalAlpha = 0.16 * fade;
-      ctx.beginPath();
-      ctx.arc(x, y, spark.size * 3.2, 0, TAU);
-      ctx.fill();
-      ctx.globalAlpha = 0.95 * fade;
-      ctx.beginPath();
-      ctx.arc(x, y, spark.size, 0, TAU);
-      ctx.fill();
-    });
-
-    ctx.globalAlpha = 1;
-    portalFrame = requestAnimationFrame(draw);
-  };
-
-  portalFrame = requestAnimationFrame(draw);
-};
-
-/* The page content starts animating in while the portal is still small. */
-const REVEAL_PAGE_START_MS = 600;
-const REVEAL_TOTAL_MS = 1350;
+/* Opening reveal: balloons pop outward from the center right after the loader. The page content
+   starts animating in exactly as the first balloons pop. */
+const REVEAL_PAGE_START_MS = 350;
+const REVEAL_TOTAL_MS = 1750;
 let revealTimers = [];
 
 const finishInitialLoading = () => {
@@ -2021,15 +1936,12 @@ const finishInitialLoading = () => {
 
   isRevealing.value = true;
   isInitialLoading.value = false;
-  nextTick(runPortal);
   window.scrollTo(0, 0);
 
   revealTimers = [
-    window.setTimeout(setupReveal, REVEAL_PAGE_START_MS),
+    window.setTimeout(startPage, REVEAL_PAGE_START_MS),
     window.setTimeout(() => {
       isRevealing.value = false;
-      typeEffect();
-      initLotties();
     }, REVEAL_TOTAL_MS),
   ];
 };
@@ -2081,20 +1993,12 @@ onMounted(() => {
   initLoaderLottie();
   runLoader();
   setupTrail();
-
-  /* warm the cache while the loader is on screen, so nothing heavy is
-     fetched or parsed during the opening reveal */
-  window.setTimeout(() => {
-    loadLottie();
-    ["hero", "services", "contact"].forEach((key) => ANIMATIONS[key]());
-  }, 700);
 });
 
 onBeforeUnmount(() => {
   clearTimeout(typingTimeout);
   cancelAnimationFrame(loaderFrame);
   revealTimers.forEach((id) => clearTimeout(id));
-  cancelAnimationFrame(portalFrame);
 
   destroyLoaderLottie();
 
@@ -2242,18 +2146,6 @@ a {
 }
 
 /* Lottie SVGs are injected at runtime, so they need :deep() */
-.hero-lottie :deep(svg),
-.services-lottie :deep(svg),
-.contact-lottie :deep(svg) {
-  animation: lottieFadeIn 0.6s ease backwards;
-}
-
-@keyframes lottieFadeIn {
-  from {
-    opacity: 0;
-  }
-}
-
 .initial-loader-lottie :deep(svg),
 .hero-lottie :deep(svg),
 .services-lottie :deep(svg),
@@ -2663,11 +2555,16 @@ a {
 }
 
 .initial-loader-leave-active {
-  transition: opacity 0.28s ease;
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.55s ease;
 }
 
 .initial-loader-leave-to {
   opacity: 0;
+  transform: scale(1.04);
+  filter: blur(6px);
 }
 
 @keyframes ilBlob {
@@ -5188,34 +5085,94 @@ a {
 }
 
 /* =========================================================
-   OPENING REVEAL (canvas portal, see runPortal in the script)
+   OPENING REVEAL (balloons popping outward from the center)
+   Only transform / opacity are animated: no masks, no filters.
 ========================================================= */
-.portal-canvas {
+.portal {
+  --cu-bg: #050b14;
+  --cu-c1: #58d8ff;
+  --cu-c2: #7469ff;
+  --cu-c3: #ff8eea;
+  --cu-c4: #72f2cb;
+  --bubble-size: calc(100vw / var(--cols) + 100vh / var(--rows));
+
   position: fixed;
   inset: 0;
   z-index: 9999;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  pointer-events: all;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  grid-template-rows: repeat(var(--rows), 1fr);
+  overflow: hidden;
+  direction: ltr;
+  contain: strict;
+}
+
+.app.light .portal {
+  --cu-bg: #f4f7fc;
+  --cu-c1: #0b8fc2;
+  --cu-c2: #5a49d6;
+  --cu-c3: #d6489f;
+  --cu-c4: #0c9a7e;
+}
+
+.bubble-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bubble {
+  --bc: var(--cu-c1);
+
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--bubble-size);
+  height: var(--bubble-size);
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: var(--cu-bg);
+  transform-origin: center;
+  animation: bubblePop 0.72s linear var(--delay, 0ms) forwards;
+}
+
+.bubble.tone-1 {
+  --bc: var(--cu-c2);
+}
+.bubble.tone-2 {
+  --bc: var(--cu-c3);
+}
+.bubble.tone-3 {
+  --bc: var(--cu-c4);
+}
+
+/* soft glossy rim, only visible while a balloon is inflating / popping */
+.bubble::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  opacity: 0;
+  background:
+    radial-gradient(
+      circle at 30% 26%,
+      color-mix(in srgb, #fff 55%, transparent) 0 6%,
+      transparent 18%
+    ),
+    radial-gradient(
+      circle,
+      transparent 58%,
+      color-mix(in srgb, var(--bc) 38%, transparent) 100%
+    );
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--bc) 70%, transparent);
+  animation: bubbleRim 0.72s linear var(--delay, 0ms) forwards;
 }
 
 .app.is-revealing .navbar {
-  animation: navDrop 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.45s backwards;
+  animation: navDrop 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards;
 }
 
-/* backdrop blur on moving elements is expensive: off while the reveal runs */
-.app.is-revealing .nav-shell,
-.app.is-revealing .hero-chip,
-.app.is-revealing .floating-techs span,
-.app.is-revealing .lottie-caption,
-.app.is-revealing .section-badge,
-.app.is-revealing .switch-bg {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-/* hero content rises in as the portal opens */
+/* hero content rises in as the balloons pop */
 .hero-left.in-view > * {
   animation: heroRise 0.95s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
@@ -5246,6 +5203,35 @@ a {
 /* =========================================================
    KEYFRAMES
 ========================================================= */
+@keyframes bubblePop {
+  0% {
+    scale: 1;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  30% {
+    scale: 1.1;
+    animation-timing-function: cubic-bezier(0.55, 0, 0.8, 0.35);
+  }
+  100% {
+    scale: 0;
+  }
+}
+
+@keyframes bubbleRim {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 @keyframes navDrop {
   from {
     opacity: 0;
