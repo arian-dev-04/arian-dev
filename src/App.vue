@@ -994,7 +994,7 @@ const translations = {
     },
     skillsSection: {
       tag: "زبان‌ها و مهارت‌ها",
-      title: "فناوری‌هایی که با آن‌ها تجربه می‌سازم",
+      title: "ابزارهایی برای تبدیل ایده به واقعیت",
       desc: "تمرکز من روی طراحی و توسعه محصولاتی است که هم از نظر بصری حرفه‌ای باشند و هم از نظر تجربه کاربر، روان، سریع و قابل اعتماد عمل کنند.",
       items: [
         "ساخت رابط‌های مدرن، سریع و تمیز برای وب‌اپلیکیشن‌ها و صفحات حرفه‌ای.",
@@ -1007,7 +1007,7 @@ const translations = {
     },
     services: {
       tag: "خدمات",
-      title: "چیزهایی که برای ساختن یک محصول دیجیتال انجام می‌دهم",
+      title: "از طراحی تا خلق تجربه‌های دیجیتال",
       desc: "از ایده و رابط کاربری تا توسعه و جزئیات نهایی، تمرکزم روی ساخت تجربه‌ای حرفه‌ای و قابل استفاده است.",
       items: [
         "ساخت وب‌سایت‌ها و وب‌اپلیکیشن‌های مدرن، سریع و ریسپانسیو.",
@@ -1059,7 +1059,7 @@ const translations = {
     },
     projectsSection: {
       tag: "پروژه‌ها",
-      title: "کارهایی که با آن‌ها تجربه‌های دیجیتال می‌سازم",
+      title: "مهارت‌هایی برای خلق تجربه‌های دیجیتال",
       desc: "نمونه‌هایی از وب‌سایت‌ها، اپلیکیشن‌ها و رابط‌هایی که با تمرکز روی طراحی، تجربه کاربری و پیاده‌سازی حرفه‌ای ساخته شده‌اند.",
       stackLabel: "تکنولوژی",
       viewLabel: "مشاهده پروژه",
@@ -1145,7 +1145,7 @@ const translations = {
     },
     skillsSection: {
       tag: "Languages & Skills",
-      title: "Technologies I use to craft experiences",
+      title: "Tools for Turning Ideas into Reality",
       desc: "My focus is on designing and building products that feel visually polished while delivering smooth, fast and dependable user experiences.",
       items: [
         "Building modern, fast and clean interfaces for web applications and premium pages.",
@@ -1158,7 +1158,7 @@ const translations = {
     },
     services: {
       tag: "SERVICES",
-      title: "What I build for digital products",
+      title: "From Design to Digital Experiences",
       desc: "From interface design to development and final polish, I focus on creating digital experiences that feel refined and usable.",
       items: [
         "Modern, fast and responsive websites and web applications.",
@@ -1220,7 +1220,7 @@ const translations = {
     },
     projectsSection: {
       tag: "PROJECTS",
-      title: "Selected work and digital experiences",
+      title: "Skills for Crafting Digital Experiences",
       desc: "A showcase of websites, applications and interfaces built with a focus on design, user experience and polished implementation.",
       stackLabel: "STACK",
       viewLabel: "VIEW PROJECT",
@@ -2816,7 +2816,7 @@ a {
 .contact-shell h2 {
   margin: 0 0 16px;
   color: var(--text);
-  font-size: clamp(34px, 4vw, 58px);
+  font-size: clamp(34px, 4vw, 48px);
   line-height: 1.1;
   font-weight: 850;
   letter-spacing: -0.03em;
