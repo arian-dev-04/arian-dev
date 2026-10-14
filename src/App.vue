@@ -72,7 +72,12 @@
     <!-- =========================================================
          OPENING REVEAL (runs right after the loader finishes)
     ========================================================== -->
-    <div v-if="isRevealing" class="portal" aria-hidden="true"></div>
+    <div v-if="isRevealing" class="portal" aria-hidden="true">
+      <span class="portal-door portal-door-top"></span>
+      <span class="portal-door portal-door-bottom"></span>
+      <span class="portal-flare"></span>
+      <span class="portal-line"></span>
+    </div>
 
     <div v-if="trailEnabled" class="mouse-trail-layer" aria-hidden="true">
       <span
@@ -101,7 +106,10 @@
     <!-- =========================================================
          NAVBAR
     ========================================================== -->
-    <header class="navbar">
+    <a class="skip-link" href="#main-content">{{
+      isFa ? "پرش به محتوا" : "Skip to content"
+    }}</a>
+    <header class="navbar" :class="{ scrolled: isScrolled }">
       <div class="container nav-shell">
         <div class="nav-col nav-col-start">
           <a href="#home" class="brand" @click="menuOpen = false">
@@ -221,7 +229,13 @@
 
         <div class="nav-col nav-col-center">
           <nav class="nav-links" aria-label="Primary navigation">
-            <a v-for="item in NAV_ITEMS" :key="item" :href="`#${item}`">
+            <a
+              v-for="item in NAV_ITEMS"
+              :key="item"
+              :href="`#${item}`"
+              :class="{ active: activeSection === item }"
+              :aria-current="activeSection === item ? 'true' : undefined"
+            >
               {{ t.nav[item] }}
             </a>
           </nav>
@@ -230,22 +244,20 @@
         <div class="nav-col nav-col-end">
           <div class="nav-actions">
             <button
-              class="switch-btn"
+              class="lang-toggle"
+              :class="{ fa: isFa }"
               type="button"
               :aria-label="isFa ? 'Switch to English' : 'تغییر به فارسی'"
               @click="toggleLang"
             >
-              <span class="switch-bg"></span>
-              <span class="switch-inner">
-                <span class="switch-icon-wrap" aria-hidden="true">🌐</span>
-                <span class="switch-text" :key="lang">{{
-                  isFa ? "English" : "فارسی"
-                }}</span>
-              </span>
+              <span class="lang-thumb" aria-hidden="true"></span>
+              <span class="lang-opt" :class="{ on: !isFa }">EN</span>
+              <span class="lang-opt" :class="{ on: isFa }">فا</span>
             </button>
 
             <button
-              class="switch-btn"
+              class="theme-toggle"
+              :class="{ light: theme === 'light' }"
               type="button"
               :aria-label="
                 theme === 'dark'
@@ -254,15 +266,35 @@
               "
               @click="toggleTheme"
             >
-              <span class="switch-bg"></span>
-              <span class="switch-inner">
-                <span class="switch-icon-wrap" aria-hidden="true">
-                  {{ theme === "dark" ? "☀️" : "🌙" }}
-                </span>
-                <span class="switch-text" :key="theme">
-                  {{ theme === "dark" ? t.actions.light : t.actions.dark }}
-                </span>
-              </span>
+              <svg
+                class="theme-sun"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path
+                  d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+                />
+              </svg>
+              <svg
+                class="theme-moon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z"
+                />
+              </svg>
             </button>
           </div>
 
@@ -280,6 +312,9 @@
             <span></span>
           </button>
         </div>
+        <span class="nav-progress" aria-hidden="true"
+          ><i ref="navProgressEl"></i
+        ></span>
       </div>
     </header>
 
@@ -328,6 +363,7 @@
               v-for="item in NAV_ITEMS"
               :key="item"
               :href="`#${item}`"
+              :class="{ active: activeSection === item }"
               @click="menuOpen = false"
             >
               {{ t.nav[item] }}
@@ -335,25 +371,61 @@
           </nav>
 
           <div class="mobile-actions">
-            <button class="switch-btn" type="button" @click="toggleLang">
-              <span class="switch-bg"></span>
-              <span class="switch-inner">
-                <span class="switch-icon-wrap" aria-hidden="true">🌐</span>
-                <span class="switch-text">{{
-                  isFa ? "English" : "فارسی"
-                }}</span>
-              </span>
-            </button>
-
-            <button class="switch-btn" type="button" @click="toggleTheme">
-              <span class="switch-bg"></span>
+            <button
+              v-for="action in navActions"
+              :key="action.key"
+              class="switch-btn"
+              type="button"
+              :aria-label="action.aria"
+              @click="action.onClick"
+            >
               <span class="switch-inner">
                 <span class="switch-icon-wrap" aria-hidden="true">
-                  {{ theme === "dark" ? "☀️" : "🌙" }}
+                  <svg
+                    v-if="action.key === 'lang'"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path
+                      d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3Z"
+                    />
+                  </svg>
+                  <svg
+                    v-else-if="theme === 'dark'"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="4" />
+                    <path
+                      d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+                    />
+                  </svg>
+                  <svg
+                    v-else
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z"
+                    />
+                  </svg>
                 </span>
-                <span class="switch-text">
-                  {{ theme === "dark" ? t.actions.light : t.actions.dark }}
-                </span>
+                <span class="switch-text" :key="action.label">{{
+                  action.label
+                }}</span>
               </span>
             </button>
           </div>
@@ -441,7 +513,7 @@
             <article
               v-for="(skill, index) in localizedSkills"
               :key="skill.name"
-              class="skill-panel reveal"
+              class="skill-panel spot reveal"
               :style="{ '--delay': `${index * 70}ms` }"
             >
               <div class="panel-line"></div>
@@ -489,7 +561,7 @@
               <article
                 v-for="(service, index) in localizedServices"
                 :key="service.title"
-                class="service-card"
+                class="service-card spot"
               >
                 <div class="service-number">0{{ index + 1 }}</div>
                 <div class="service-icon" aria-hidden="true">
@@ -583,7 +655,7 @@
             <div
               v-for="(card, index) in t.about.cards"
               :key="card.title"
-              class="about-card reveal"
+              class="about-card spot reveal"
               :class="{ accent: card.accent }"
               :style="{ '--delay': `${index * 80}ms` }"
             >
@@ -630,7 +702,7 @@
               <article
                 v-for="project in visibleProjects"
                 :key="project.key"
-                class="pc"
+                class="pc spot"
                 :style="{ '--pc-rgb': project.rgb }"
               >
                 <div class="pc-media">
@@ -725,7 +797,7 @@
             <article
               v-for="(step, index) in t.process.items"
               :key="index"
-              class="process-card reveal"
+              class="process-card spot reveal"
               :style="{ '--delay': `${index * 90}ms` }"
             >
               <div class="process-top">
@@ -785,41 +857,6 @@
                     </svg>
                   </span>
                 </a>
-
-                <a
-                  :href="`tel:${CONTACT_PHONE.replace(/[^\d+]/g, '')}`"
-                  class="contact-link contact-link-phone"
-                  :aria-label="`${t.contact.phoneBtn}${CONTACT_PHONE}`"
-                >
-                  <span class="contact-link-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" focusable="false">
-                      <path
-                        d="M7.1 3.8 9.35 7.6c.35.6.26 1.18-.2 1.64l-1.3 1.3a14.4 14.4 0 0 0 5.62 5.62l1.3-1.3c.46-.46 1.04-.55 1.64-.2l3.8 2.25c.68.4.85 1.1.48 1.8l-.82 1.54c-.38.72-1.1 1.08-1.9 1.02C10.1 20.6 3.4 13.9 2.73 6.03c-.06-.8.3-1.52 1.02-1.9l1.54-.82c.7-.37 1.4-.2 1.8.49Z"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </span>
-
-                  <span class="contact-link-text">
-                    <small>{{ t.contact.phoneHint }}</small>
-                    <strong dir="ltr">{{ CONTACT_PHONE }}</strong>
-                  </span>
-
-                  <span class="contact-link-arrow" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" focusable="false">
-                      <path
-                        d="M7 17 17 7M9 7h8v8"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </span>
-                </a>
               </div>
             </div>
 
@@ -849,6 +886,34 @@
         </nav>
       </div>
     </footer>
+
+    <button
+      class="to-top"
+      :class="{ show: showTop }"
+      type="button"
+      :aria-label="isFa ? 'بازگشت به بالا' : 'Back to top'"
+      :tabindex="showTop ? 0 : -1"
+      @click="scrollToTop"
+    >
+      <svg class="to-top-ring" viewBox="0 0 44 44" aria-hidden="true">
+        <circle class="ring-track" cx="22" cy="22" r="20" />
+        <circle ref="topRingEl" class="ring-bar" cx="22" cy="22" r="20" />
+      </svg>
+      <svg
+        class="to-top-arrow"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M12 19V5M5 12l7-7 7 7"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -875,17 +940,16 @@ const NAV_ITEMS = [
   "contact",
 ];
 const TECHS = ["Vue.js", "Flutter", "JavaScript", "Dart", "Go", "UI/UX"];
-// Replace these two values with your real Telegram username and phone number.
+// Replace these two values with your real Telegram link and username.
 const CONTACT_TELEGRAM_URL = "https://t.me/Ariankdev";
-const CONTACT_PHONE = "+98XXXXXXXXXX";
 const CONTACT_TELEGRAM_HANDLE = "@Ariankdev";
 const SKILL_META = [
-  { name: "Vue.js", icon: "🟢" },
-  { name: "Flutter", icon: "🔵" },
-  { name: "JavaScript", icon: "🟡" },
-  { name: "Dart", icon: "🧩" },
-  { name: "Go", icon: "⚙️" },
-  { name: "UI / UX", icon: "✨" },
+  { name: "Vue.js", icon: "Vu" },
+  { name: "Flutter", icon: "Fl" },
+  { name: "JavaScript", icon: "JS" },
+  { name: "Dart", icon: "Dt" },
+  { name: "Go", icon: "Go" },
+  { name: "UI / UX", icon: "UX" },
 ];
 const SERVICE_META = [
   {
@@ -1107,9 +1171,7 @@ const translations = {
       title: "برای همکاری در پروژه‌های خود در تماس باشید",
       desc: "اگر به یک وب‌سایت شیک، رابط کاربری مدرن، اپ Flutter یا طراحی UI/UX نیاز دارید، خوشحال می‌شوم همکاری کنیم.",
       telegramBtn: "تلگرام",
-      phoneBtn: "تماس تلفنی: ",
       telegramHint: "پیام مستقیم در تلگرام",
-      phoneHint: "تماس تلفنی",
     },
     seo: {
       title: "آرین کلانتری | توسعه‌دهنده Frontend، Flutter، Go و UI/UX",
@@ -1268,9 +1330,7 @@ const translations = {
       title: "Let's work together on polished digital products",
       desc: "If you need a beautiful website, modern UI, Flutter app or UI/UX design, I would be happy to collaborate.",
       telegramBtn: "Telegram",
-      phoneBtn: "Call: ",
       telegramHint: "Message me on Telegram",
-      phoneHint: "Call directly",
     },
     seo: {
       title: "Arian Kalantari | Frontend, Flutter, Go & UI/UX Developer",
@@ -1309,6 +1369,9 @@ const isRevealing = ref(false);
 const activeFilter = ref("all");
 const displayedWord = ref("");
 const trailEnabled = ref(false);
+const isScrolled = ref(false);
+const showTop = ref(false);
+const activeSection = ref("home");
 
 const isFa = computed(() => lang.value === "fa");
 const t = computed(() => translations[lang.value]);
@@ -1417,6 +1480,24 @@ const projectFilters = computed(() => {
   ];
 });
 
+/* language + theme buttons, rendered in the navbar and the mobile menu */
+const navActions = computed(() => [
+  {
+    key: "lang",
+    label: isFa.value ? "English" : "فارسی",
+    aria: isFa.value ? "Switch to English" : "تغییر به فارسی",
+    onClick: toggleLang,
+  },
+  {
+    key: "theme",
+    label:
+      theme.value === "dark" ? t.value.actions.light : t.value.actions.dark,
+    aria:
+      theme.value === "dark" ? "Switch to light mode" : "Switch to dark mode",
+    onClick: toggleTheme,
+  },
+]);
+
 /* =========================================================
    TEMPLATE REFS
 ========================================================= */
@@ -1428,6 +1509,8 @@ const lottieContainer = ref(null);
 const servicesLottieContainer = ref(null);
 const contactLottieContainer = ref(null);
 const mobileLottieContainer = ref(null);
+const navProgressEl = ref(null);
+const topRingEl = ref(null);
 
 /* =========================================================
    SEO
@@ -1455,53 +1538,56 @@ const updateThemeColor = () => {
   });
 };
 
+const AUTHOR = "Arian Kalantari";
+
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@type": "ProfilePage",
+  mainEntity: {
+    "@type": "Person",
+    name: AUTHOR,
+    jobTitle: "Frontend, Flutter, Go & UI/UX Developer",
+    description:
+      "Frontend developer specializing in Vue.js, Flutter, Go and UI/UX.",
+    knowsAbout: [
+      "Vue.js",
+      "JavaScript",
+      "Flutter",
+      "Dart",
+      "Go",
+      "UI/UX",
+      "Frontend Development",
+      "Web Development",
+      "Mobile Development",
+    ],
+  },
+};
+
+const metaName = (name, content) => [`meta[name="${name}"]`, { name, content }];
+const metaProp = (property, content) => [
+  `meta[property="${property}"]`,
+  { property, content },
+];
+
 const updateSeo = () => {
   const { title, description, locale } = t.value.seo;
 
   document.title = title;
 
-  setMeta('meta[name="description"]', {
-    name: "description",
-    content: description,
-  });
-  setMeta('meta[name="robots"]', { name: "robots", content: ROBOTS });
-  setMeta('meta[name="googlebot"]', { name: "googlebot", content: ROBOTS });
-  setMeta('meta[name="author"]', {
-    name: "author",
-    content: "Arian Kalantari",
-  });
-  setMeta('meta[property="og:title"]', {
-    property: "og:title",
-    content: title,
-  });
-  setMeta('meta[property="og:description"]', {
-    property: "og:description",
-    content: description,
-  });
-  setMeta('meta[property="og:type"]', {
-    property: "og:type",
-    content: "website",
-  });
-  setMeta('meta[property="og:locale"]', {
-    property: "og:locale",
-    content: locale,
-  });
-  setMeta('meta[property="og:site_name"]', {
-    property: "og:site_name",
-    content: "Arian Kalantari",
-  });
-  setMeta('meta[name="twitter:card"]', {
-    name: "twitter:card",
-    content: "summary_large_image",
-  });
-  setMeta('meta[name="twitter:title"]', {
-    name: "twitter:title",
-    content: title,
-  });
-  setMeta('meta[name="twitter:description"]', {
-    name: "twitter:description",
-    content: description,
-  });
+  [
+    metaName("description", description),
+    metaName("robots", ROBOTS),
+    metaName("googlebot", ROBOTS),
+    metaName("author", AUTHOR),
+    metaProp("og:title", title),
+    metaProp("og:description", description),
+    metaProp("og:type", "website"),
+    metaProp("og:locale", locale),
+    metaProp("og:site_name", AUTHOR),
+    metaName("twitter:card", "summary_large_image"),
+    metaName("twitter:title", title),
+    metaName("twitter:description", description),
+  ].forEach(([selector, attributes]) => setMeta(selector, attributes));
 
   let canonical = document.head.querySelector('link[rel="canonical"]');
 
@@ -1521,29 +1607,7 @@ const updateSeo = () => {
 
     script.type = "application/ld+json";
     script.id = "portfolio-structured-data";
-    script.textContent = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "ProfilePage",
-      mainEntity: {
-        "@type": "Person",
-        name: "Arian Kalantari",
-        jobTitle: "Frontend, Flutter, Go & UI/UX Developer",
-        description:
-          "Frontend developer specializing in Vue.js, Flutter, Go and UI/UX.",
-        knowsAbout: [
-          "Vue.js",
-          "JavaScript",
-          "Flutter",
-          "Dart",
-          "Go",
-          "UI/UX",
-          "Frontend Development",
-          "Web Development",
-          "Mobile Development",
-        ],
-      },
-    });
-
+    script.textContent = JSON.stringify(STRUCTURED_DATA);
     document.head.appendChild(script);
   }
 };
@@ -1789,10 +1853,30 @@ watch(menuOpen, async (open) => {
 });
 
 /* =========================================================
-   MOUSE TRAIL (original look: soft glowing stars)
+   MOUSE TRAIL (soft glowing stars)
    Desktop / fine pointer only, so touch devices pay nothing.
 ========================================================= */
 const stars = ref([]);
+
+const PALETTES = {
+  dark: [
+    { color: "#ffffff", glow: "rgba(255,255,255,0.90)" },
+    { color: "#62e8ff", glow: "rgba(98,232,255,0.72)" },
+    { color: "#8f7cff", glow: "rgba(143,124,255,0.68)" },
+    { color: "#73f4cf", glow: "rgba(115,244,207,0.62)" },
+    { color: "#ff8eea", glow: "rgba(255,142,234,0.54)" },
+    { color: "#ffd36b", glow: "rgba(255,211,107,0.48)" },
+    { color: "#75a9ff", glow: "rgba(117,169,255,0.56)" },
+  ],
+  light: [
+    { color: "#ffffff", glow: "rgba(255,255,255,0.92)" },
+    { color: "#7c3aed", glow: "rgba(124,58,237,0.34)" },
+    { color: "#0ea5e9", glow: "rgba(14,165,233,0.34)" },
+    { color: "#14b8a6", glow: "rgba(20,184,166,0.30)" },
+    { color: "#db5cff", glow: "rgba(219,92,255,0.27)" },
+    { color: "#f59e0b", glow: "rgba(245,158,11,0.24)" },
+  ],
+};
 
 let starId = 0;
 let lastEmit = 0;
@@ -1800,28 +1884,8 @@ let lastMove = { x: 0, y: 0, time: 0 };
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-const getPalette = () =>
-  theme.value === "dark"
-    ? [
-        { color: "#ffffff", glow: "rgba(255,255,255,0.90)" },
-        { color: "#62e8ff", glow: "rgba(98,232,255,0.72)" },
-        { color: "#8f7cff", glow: "rgba(143,124,255,0.68)" },
-        { color: "#73f4cf", glow: "rgba(115,244,207,0.62)" },
-        { color: "#ff8eea", glow: "rgba(255,142,234,0.54)" },
-        { color: "#ffd36b", glow: "rgba(255,211,107,0.48)" },
-        { color: "#75a9ff", glow: "rgba(117,169,255,0.56)" },
-      ]
-    : [
-        { color: "#ffffff", glow: "rgba(255,255,255,0.92)" },
-        { color: "#7c3aed", glow: "rgba(124,58,237,0.34)" },
-        { color: "#0ea5e9", glow: "rgba(14,165,233,0.34)" },
-        { color: "#14b8a6", glow: "rgba(20,184,166,0.30)" },
-        { color: "#db5cff", glow: "rgba(219,92,255,0.27)" },
-        { color: "#f59e0b", glow: "rgba(245,158,11,0.24)" },
-      ];
-
 const createSoftStar = (x, y, spread = 10) => {
-  const tone = pick(getPalette());
+  const tone = pick(PALETTES[theme.value]);
   const duration = 430 + Math.random() * 300;
   const id = starId++;
 
@@ -1879,18 +1943,125 @@ const handleMouseOut = (e) => {
   if (!e.relatedTarget) clearTrail();
 };
 
-const setupTrail = () => {
-  const canUseTrail =
-    !prefersReducedMotion &&
-    window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+const hasFinePointer = () =>
+  !prefersReducedMotion &&
+  window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
-  if (!canUseTrail) return;
+const setupTrail = () => {
+  if (!hasFinePointer()) return;
 
   trailEnabled.value = true;
 
   window.addEventListener("mousemove", handleMouseMove, { passive: true });
   window.addEventListener("mouseout", handleMouseOut);
   document.documentElement.addEventListener("mouseleave", clearTrail);
+};
+
+const teardownTrail = () => {
+  window.removeEventListener("mousemove", handleMouseMove);
+  window.removeEventListener("mouseout", handleMouseOut);
+  document.documentElement.removeEventListener("mouseleave", clearTrail);
+};
+
+/* =========================================================
+   CARD SPOTLIGHT
+   A single delegated, rAF-throttled listener feeds --mx / --my
+   to whichever .spot card is under the pointer.
+========================================================= */
+let spotFrame = 0;
+let spotEvent = null;
+
+const handleSpot = (e) => {
+  spotEvent = e;
+
+  if (spotFrame) return;
+
+  spotFrame = requestAnimationFrame(() => {
+    spotFrame = 0;
+
+    const card = spotEvent?.target?.closest?.(".spot");
+
+    if (!card) return;
+
+    const rect = card.getBoundingClientRect();
+
+    card.style.setProperty("--mx", `${spotEvent.clientX - rect.left}px`);
+    card.style.setProperty("--my", `${spotEvent.clientY - rect.top}px`);
+  });
+};
+
+const setupSpotlight = () => {
+  if (hasFinePointer())
+    window.addEventListener("pointermove", handleSpot, { passive: true });
+};
+
+/* =========================================================
+   SCROLL UI: navbar state, progress line, back-to-top ring, scrollspy
+   One passive listener, one rAF per frame, no reactive churn.
+========================================================= */
+const RING_LENGTH = 125.66;
+
+let scrollQueued = false;
+let spyObserver = null;
+
+const updateScrollUi = () => {
+  scrollQueued = false;
+
+  const y = window.scrollY;
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  const progress = max > 0 ? Math.min(1, y / max) : 0;
+
+  if (navProgressEl.value)
+    navProgressEl.value.style.transform = `scaleX(${progress})`;
+  if (topRingEl.value)
+    topRingEl.value.style.strokeDashoffset = String(
+      RING_LENGTH * (1 - progress),
+    );
+
+  isScrolled.value = y > 12;
+  showTop.value = y > 640;
+};
+
+const onScroll = () => {
+  if (scrollQueued) return;
+
+  scrollQueued = true;
+  requestAnimationFrame(updateScrollUi);
+};
+
+const scrollToTop = () =>
+  window.scrollTo({
+    top: 0,
+    behavior: prefersReducedMotion ? "auto" : "smooth",
+  });
+
+const setupScrollUi = () => {
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll, { passive: true });
+  updateScrollUi();
+
+  spyObserver = new IntersectionObserver(
+    (records) => {
+      records.forEach(({ target, isIntersecting }) => {
+        if (isIntersecting) activeSection.value = target.id;
+      });
+    },
+    { rootMargin: "-45% 0px -50% 0px" },
+  );
+
+  NAV_ITEMS.forEach((id) => {
+    const el = document.getElementById(id);
+
+    if (el) spyObserver.observe(el);
+  });
+};
+
+const teardownScrollUi = () => {
+  cancelAnimationFrame(spotFrame);
+  window.removeEventListener("pointermove", handleSpot);
+  window.removeEventListener("scroll", onScroll);
+  window.removeEventListener("resize", onScroll);
+  spyObserver?.disconnect();
 };
 
 /* =========================================================
@@ -1944,9 +2115,9 @@ const startPage = () => {
   setupReveal();
 };
 
-/* Open the page with a smooth diagonal light sweep after the loader fades. */
-const REVEAL_PAGE_START_MS = 300;
-const REVEAL_TOTAL_MS = 1500;
+/* Open the page with a light-split reveal after the loader fades. */
+const REVEAL_PAGE_START_MS = 850;
+const REVEAL_TOTAL_MS = 1950;
 let revealTimers = [];
 
 const finishInitialLoading = () => {
@@ -2018,6 +2189,8 @@ onMounted(() => {
   initLoaderLottie();
   runLoader();
   setupTrail();
+  setupSpotlight();
+  setupScrollUi();
 });
 
 onBeforeUnmount(() => {
@@ -2035,9 +2208,8 @@ onBeforeUnmount(() => {
   lottieObserver?.disconnect();
   revealObserver?.disconnect();
 
-  window.removeEventListener("mousemove", handleMouseMove);
-  window.removeEventListener("mouseout", handleMouseOut);
-  document.documentElement.removeEventListener("mouseleave", clearTrail);
+  teardownTrail();
+  teardownScrollUi();
 });
 
 watch(theme, (value) => {
@@ -2127,7 +2299,17 @@ a {
   --border-strong: rgba(90, 217, 255, 0.28);
   --primary: #5ad9ff;
   --primary-2: #8479ff;
+  --primary-3: #ff8ad8;
   --accent: #6ff0c8;
+  --grad: linear-gradient(
+    120deg,
+    var(--primary) 0%,
+    var(--primary-2) 58%,
+    var(--primary-3) 125%
+  );
+  --spot-rgb: 110, 190, 255;
+  --progress: linear-gradient(90deg, #2f6fb0, #5b9bd5);
+  --progress-solid: #4a8fd0;
   --shadow: 0 25px 60px rgba(0, 0, 0, 0.23);
   --on-primary: #06121f;
   --nav-bg: rgba(7, 17, 31, 0.78);
@@ -2163,7 +2345,11 @@ a {
   --border-strong: rgba(6, 120, 170, 0.28);
   --primary: #0678aa;
   --primary-2: #5a49d6;
+  --primary-3: #c2398f;
   --accent: #0c9a7e;
+  --spot-rgb: 6, 120, 170;
+  --progress: linear-gradient(90deg, #1f4f86, #3b78b8);
+  --progress-solid: #2a65a3;
   --shadow: 0 25px 60px rgba(57, 77, 108, 0.1);
   --on-primary: #ffffff;
   --nav-bg: rgba(255, 255, 255, 0.92);
@@ -2598,12 +2784,6 @@ a {
   }
 }
 
-@keyframes ilBarFlow {
-  to {
-    background-position: -200% 0;
-  }
-}
-
 @keyframes ilShine {
   to {
     transform: translateX(100%);
@@ -2680,21 +2860,71 @@ a {
   z-index: -20;
   background:
     radial-gradient(
-      circle at 50% 28%,
-      rgba(74, 194, 250, 0.045),
-      transparent 44%
+      60% 50% at 12% 0%,
+      rgba(80, 210, 255, 0.1),
+      transparent 70%
+    ),
+    radial-gradient(
+      50% 45% at 92% 18%,
+      rgba(132, 121, 255, 0.11),
+      transparent 70%
+    ),
+    radial-gradient(
+      55% 45% at 50% 100%,
+      rgba(255, 138, 216, 0.06),
+      transparent 70%
     ),
     linear-gradient(180deg, #07111f 0%, #081422 52%, #07101c 100%);
+}
+
+/* faint dotted grid that fades out away from the top */
+.bg-base::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.6;
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.09) 1px,
+    transparent 1.2px
+  );
+  background-size: 30px 30px;
+  -webkit-mask-image: radial-gradient(
+    ellipse 80% 60% at 50% 18%,
+    #000 0%,
+    transparent 75%
+  );
+  mask-image: radial-gradient(
+    ellipse 80% 60% at 50% 18%,
+    #000 0%,
+    transparent 75%
+  );
 }
 
 .app.light .bg-base {
   background:
     radial-gradient(
-      circle at 50% 28%,
-      rgba(60, 140, 220, 0.035),
-      transparent 44%
+      60% 50% at 12% 0%,
+      rgba(40, 160, 230, 0.1),
+      transparent 70%
+    ),
+    radial-gradient(
+      50% 45% at 92% 18%,
+      rgba(110, 90, 230, 0.08),
+      transparent 70%
+    ),
+    radial-gradient(
+      55% 45% at 50% 100%,
+      rgba(230, 90, 170, 0.05),
+      transparent 70%
     ),
     linear-gradient(180deg, #fbfcfe 0%, #f7f9fc 52%, #f1f4f8 100%);
+}
+
+.app.light .bg-base::after {
+  background-image: radial-gradient(
+    rgba(15, 23, 42, 0.1) 1px,
+    transparent 1.2px
+  );
 }
 
 /* gradient only: no blur filter, much cheaper to paint */
@@ -2790,24 +3020,33 @@ a {
 .section-badge {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 9px 14px;
-  margin-bottom: 15px;
+  gap: 9px;
+  padding: 8px 16px;
+  margin-bottom: 16px;
   border-radius: 999px;
-  background: var(--surface);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(var(--spot-rgb), 0.12),
+      rgba(132, 121, 255, 0.07) 60%,
+      rgba(255, 138, 216, 0.05)
+    ),
+    var(--surface);
   border: 1px solid var(--border-strong);
-  color: var(--primary);
-  font-size: 18px;
+  color: var(--text);
+  font-size: 13px;
   font-weight: 800;
+  letter-spacing: 0.02em;
   backdrop-filter: blur(10px);
 }
 
 .section-badge::before {
   content: "";
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--primary);
+  background: var(--grad);
+  box-shadow: 0 0 0 3px rgba(var(--spot-rgb), 0.16);
 }
 
 .section-heading h2,
@@ -3140,19 +3379,20 @@ a {
 }
 
 .nav-links {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 3px;
+  gap: 2px;
+  padding: 4px;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.025);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .app.light .nav-links {
-  background: rgba(15, 23, 42, 0.025);
+  background: rgba(15, 23, 42, 0.03);
 }
 
 .nav-links a {
@@ -3160,109 +3400,220 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 0 10px;
-  border-radius: 10px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   white-space: nowrap;
   transition:
-    color 0.22s ease,
-    background 0.22s ease,
-    transform 0.22s ease;
+    color 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .nav-links a:hover {
   color: var(--text);
   background: var(--surface-strong);
-  transform: translateY(-1px);
 }
 
-.nav-links a::after {
+.nav-links a.active {
+  color: var(--text);
+  background: linear-gradient(
+    135deg,
+    rgba(var(--spot-rgb), 0.2),
+    rgba(132, 121, 255, 0.17)
+  );
+  box-shadow: inset 0 0 0 1px rgba(var(--spot-rgb), 0.3);
+}
+
+.nav-links a.active::after {
   content: "";
   position: absolute;
-  left: 50%;
   bottom: 3px;
-  width: 0;
+  left: 50%;
+  width: 14px;
   height: 2px;
-  border-radius: 999px;
-  transform: translateX(-50%);
-  background: linear-gradient(90deg, var(--primary), var(--primary-2));
-  transition: width 0.25s ease;
-}
-
-.nav-links a:hover::after {
-  width: 22px;
+  margin-left: -7px;
+  border-radius: 2px;
+  background: var(--grad);
 }
 
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   direction: ltr;
 }
 
-.switch-btn {
+/* segmented EN | فا switch with a sliding thumb */
+.lang-toggle {
   position: relative;
-  width: 98px;
-  height: 34px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 78px;
+  height: 38px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-family: inherit;
+  cursor: pointer;
+  isolation: isolate;
+  transition: border-color 0.25s ease;
+}
+
+.app.light .lang-toggle,
+.app.light .theme-toggle {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.lang-toggle:hover {
+  border-color: var(--border-strong);
+}
+
+.lang-thumb {
+  position: absolute;
+  z-index: -1;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 2);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 4px 14px rgba(var(--spot-rgb), 0.3);
+  transition: transform 0.4s cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+
+.lang-toggle.fa .lang-thumb {
+  transform: translateX(100%);
+}
+
+.lang-opt {
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  transition: color 0.3s ease;
+}
+
+.lang-opt.on {
+  color: var(--on-primary);
+}
+
+/* round button, sun and moon cross-fade with a small rotation */
+.theme-toggle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 11px;
-  background: transparent;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text);
   cursor: pointer;
   transition:
     transform 0.25s ease,
     border-color 0.25s ease,
-    box-shadow 0.25s ease;
+    background 0.25s ease;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: var(--surface-strong);
+}
+
+.theme-toggle:active {
+  transform: scale(0.94);
+}
+
+.theme-toggle svg {
+  grid-area: 1 / 1;
+  width: 18px;
+  height: 18px;
+  transition:
+    transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.35s ease;
+}
+
+.theme-sun {
+  color: #f5b942;
+}
+
+.theme-moon {
+  color: var(--primary-2);
+  opacity: 0;
+  transform: rotate(-80deg) scale(0.4);
+}
+
+.theme-toggle.light .theme-sun {
+  opacity: 0;
+  transform: rotate(80deg) scale(0.4);
+}
+
+.theme-toggle.light .theme-moon {
+  opacity: 1;
+  transform: none;
+}
+
+/* labelled buttons used inside the mobile menu */
+.switch-btn {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    border-color 0.25s ease,
+    background 0.25s ease;
 }
 
 .switch-btn:hover {
-  transform: translateY(-2px);
   border-color: var(--border-strong);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  background: var(--surface-strong);
 }
 
-.switch-bg {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.065),
-      rgba(255, 255, 255, 0.018)
-    ),
-    var(--surface);
-  backdrop-filter: blur(12px);
+.switch-btn:active {
+  transform: scale(0.97);
 }
 
 .switch-inner {
-  position: relative;
-  z-index: 2;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 8px;
 }
 
 .switch-icon-wrap {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--primary);
+}
+
+.switch-icon-wrap svg {
+  width: 18px;
+  height: 18px;
 }
 
 .switch-text {
-  color: var(--text);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 800;
   white-space: nowrap;
   animation: textSlide 0.25s ease;
@@ -3315,59 +3666,56 @@ a {
 }
 
 /* =========================================================
-   MOBILE MENU (EN opens from the left, FA from the right)
+   MOBILE MENU (opens from the hamburger side: EN right, FA left)
 ========================================================= */
 .mobile-menu-overlay {
   position: fixed;
   inset: 0;
   z-index: 70;
   display: flex;
-  align-items: stretch;
-  justify-content: flex-start;
+  align-items: flex-start;
+  /* physical sides: the overlay is always LTR so flex-end = right edge */
+  justify-content: flex-end;
   direction: ltr;
-  background: rgba(4, 10, 18, 0.58);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  padding: 72px 12px 12px;
+  background: rgba(4, 10, 18, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
+/* FA (RTL): the hamburger sits on the left, so the menu opens from the left */
 .app.lang-fa .mobile-menu-overlay {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .app.light .mobile-menu-overlay {
-  background: rgba(226, 234, 243, 0.58);
+  background: rgba(226, 234, 243, 0.5);
 }
 
 .mobile-menu-panel {
-  width: min(390px, 88vw);
-  height: 100dvh;
-  padding: max(20px, env(safe-area-inset-top)) 21px
-    max(21px, env(safe-area-inset-bottom));
+  width: min(280px, 100%);
+  height: auto;
+  max-height: calc(100dvh - 84px);
+  padding: 14px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   direction: ltr;
   border: 1px solid var(--border);
-  border-width: 0 1px 0 0;
-  border-radius: 0 26px 26px 0;
+  border-radius: 22px;
   background: rgba(12, 22, 37, 0.97);
-  box-shadow: 25px 0 70px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
+  transform-origin: top right;
 }
 
 .app.lang-fa .mobile-menu-panel {
   direction: rtl;
-  border-width: 0 0 0 1px;
-  border-radius: 26px 0 0 26px;
-  box-shadow: -25px 0 70px rgba(0, 0, 0, 0.32);
+  transform-origin: top left;
 }
 
 .app.light .mobile-menu-panel {
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 25px 0 70px rgba(55, 75, 105, 0.12);
-}
-
-.app.light.lang-fa .mobile-menu-panel {
-  box-shadow: -25px 0 70px rgba(55, 75, 105, 0.12);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 24px 60px rgba(55, 75, 105, 0.18);
 }
 
 .mobile-menu-header {
@@ -3375,78 +3723,79 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 15px;
+  gap: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 
 .mobile-menu-brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 
 .mobile-menu-mark {
-  width: 45px;
-  height: 45px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 
 .mobile-lottie {
-  width: 45px;
-  height: 45px;
+  width: 36px;
+  height: 36px;
 }
 
 .mobile-menu-brand strong {
   display: block;
   color: var(--text);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .mobile-menu-brand span {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .mobile-close {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 11px;
   background: var(--surface);
   color: var(--text);
-  font-size: 23px;
+  font-size: 20px;
   cursor: pointer;
 }
 
 .mobile-nav-links {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 16px 2px;
+  gap: 4px;
+  padding: 10px 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .mobile-nav-links a {
   position: relative;
-  min-height: 52px;
+  min-height: 42px;
   display: flex;
   align-items: center;
-  padding: 13px 14px;
+  padding: 9px 12px;
   border: 1px solid transparent;
-  border-radius: 15px;
+  border-radius: 12px;
   color: var(--text);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   transition:
     background 0.22s ease,
@@ -3457,7 +3806,7 @@ a {
 .mobile-nav-links a::after {
   content: "";
   position: absolute;
-  inset-inline-end: 14px;
+  inset-inline-end: 12px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -3488,24 +3837,26 @@ a {
   flex: 0 0 auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding-top: 13px;
+  gap: 6px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
 }
 
 .mobile-actions .switch-btn {
   width: 100%;
-  height: 44px;
+  height: 38px;
 }
 
 .mobile-menu-enter-active,
 .mobile-menu-leave-active {
-  transition: opacity 0.28s ease;
+  transition: opacity 0.25s ease;
 }
 
 .mobile-menu-enter-active .mobile-menu-panel,
 .mobile-menu-leave-active .mobile-menu-panel {
-  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.25s ease;
 }
 
 .mobile-menu-enter-from,
@@ -3513,14 +3864,17 @@ a {
   opacity: 0;
 }
 
+/* EN: slides in from the right (same side as the hamburger) */
 .mobile-menu-enter-from .mobile-menu-panel,
 .mobile-menu-leave-to .mobile-menu-panel {
-  transform: translateX(-100%);
+  opacity: 0;
+  transform: translateX(28px) scale(0.96);
 }
 
+/* FA: slides in from the left (same side as the hamburger) */
 .app.lang-fa .mobile-menu-enter-from .mobile-menu-panel,
 .app.lang-fa .mobile-menu-leave-to .mobile-menu-panel {
-  transform: translateX(100%);
+  transform: translateX(-28px) scale(0.96);
 }
 
 /* =========================================================
@@ -3617,29 +3971,29 @@ a {
   font-weight: 900;
   letter-spacing: -0.045em;
   color: transparent;
-  background: linear-gradient(
-    120deg,
-    #e2edf8 0%,
-    #82abc9 36%,
-    #788bbd 68%,
-    #bac7df 100%
+  background-image: linear-gradient(
+    100deg,
+    #eaf6ff 0%,
+    var(--primary) 28%,
+    var(--primary-2) 56%,
+    var(--primary-3) 80%,
+    #eaf6ff 100%
   );
+  background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
+  animation: nameFlow 9s linear infinite;
 }
 
 .app.light .hero-name {
-  background: linear-gradient(
-    120deg,
-    #101827 0%,
-    #173f60 30%,
-    #205775 53%,
-    #354a78 76%,
-    #101827 100%
+  background-image: linear-gradient(
+    100deg,
+    #0e1626 0%,
+    var(--primary) 30%,
+    var(--primary-2) 58%,
+    var(--primary-3) 82%,
+    #0e1626 100%
   );
-
-  -webkit-background-clip: text;
-  background-clip: text;
 }
 
 .app.lang-fa .hero-title {
@@ -3718,30 +4072,48 @@ a {
 
 .premium-btn {
   position: relative;
-  min-width: 178px;
-  min-height: 54px;
+  min-width: 176px;
+  min-height: 52px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 0 20px;
+  gap: 10px;
+  padding: 0 22px;
   overflow: hidden;
+  isolation: isolate;
   border: 1px solid transparent;
   border-radius: 16px;
   transition:
-    transform 0.3s ease,
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     box-shadow 0.3s ease,
-    border-color 0.3s ease;
+    border-color 0.3s ease,
+    background-color 0.3s ease,
+    background-position 0.6s ease;
 }
 
 .premium-btn:hover {
   transform: translateY(-3px);
 }
 
+.premium-btn:active {
+  transform: translateY(-1px) scale(0.97);
+}
+
 .premium-btn.primary {
   color: var(--on-primary);
-  background: linear-gradient(135deg, var(--primary), var(--primary-2));
-  box-shadow: 0 15px 32px rgba(74, 113, 246, 0.18);
+  background: var(--grad);
+  background-size: 180% 100%;
+  background-position: 0 0;
+  box-shadow:
+    0 14px 34px rgba(var(--spot-rgb), 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.premium-btn.primary:hover {
+  background-position: 100% 0;
+  box-shadow:
+    0 18px 42px rgba(var(--spot-rgb), 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .premium-btn.ghost {
@@ -3753,28 +4125,30 @@ a {
 
 .premium-btn.ghost:hover {
   border-color: var(--border-strong);
+  background: var(--surface-strong);
 }
 
+/* diagonal sheen that sweeps across on hover */
 .btn-liquid {
   position: absolute;
-  inset: -50%;
-  background:
-    radial-gradient(
-      circle at 20% 40%,
-      rgba(255, 255, 255, 0.23),
-      transparent 18%
-    ),
-    radial-gradient(
-      circle at 72% 28%,
-      rgba(255, 255, 255, 0.11),
-      transparent 16%
-    );
-  transform: translateX(-18%);
-  transition: transform 0.6s ease;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  z-index: 1;
+  width: 38%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  transform: translateX(-160%) skewX(-18deg);
+  transition: transform 0.75s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
 }
 
 .premium-btn:hover .btn-liquid {
-  transform: translateX(15%);
+  transform: translateX(380%) skewX(-18deg);
 }
 
 .btn-content,
@@ -3785,11 +4159,24 @@ a {
 }
 
 .btn-content {
-  font-weight: 750;
+  font-weight: 800;
 }
 
 .btn-arrow {
-  transition: transform 0.25s ease;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 13px;
+  transition:
+    transform 0.3s ease,
+    background 0.3s ease;
+}
+
+.premium-btn.ghost .btn-arrow {
+  background: var(--surface-strong);
 }
 
 .premium-btn:hover .btn-arrow {
@@ -3799,15 +4186,15 @@ a {
 /* hero visual */
 .glass-stage {
   position: relative;
-  min-height: 560px;
+  min-height: 620px;
   display: grid;
   place-items: center;
 }
 
 .stage-glow {
   position: absolute;
-  width: 440px;
-  height: 440px;
+  width: 500px;
+  height: 500px;
   border-radius: 50%;
   background: radial-gradient(
     circle,
@@ -3821,8 +4208,8 @@ a {
 .lottie-card {
   position: relative;
   z-index: 4;
-  width: min(100%, 470px);
-  min-height: 500px;
+  width: min(100%, 530px);
+  min-height: 560px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3832,8 +4219,8 @@ a {
 .hero-lottie {
   position: relative;
   z-index: 2;
-  width: min(100%, 410px);
-  height: 410px;
+  width: min(100%, 470px);
+  height: 470px;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -3931,7 +4318,7 @@ a {
   height: 3px;
   margin-bottom: 20px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--primary), var(--primary-2));
+  background: var(--grad);
   transition: width 0.3s ease;
 }
 
@@ -4426,7 +4813,7 @@ a {
 
 .pc-filter.active {
   color: var(--on-primary);
-  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  background: var(--grad);
 }
 
 .pc-filter-count {
@@ -4691,7 +5078,7 @@ a {
   gap: 8px;
   padding: 0 16px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  background: var(--grad);
   color: var(--on-primary);
   font-size: 13px;
   font-weight: 800;
@@ -4837,9 +5224,9 @@ a {
 
 .contact-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
-  max-width: 580px;
+  max-width: 400px;
   margin-top: 30px;
 }
 
@@ -4873,10 +5260,6 @@ a {
 
 .contact-link-telegram {
   --lk-rgb: 42, 171, 238;
-}
-
-.contact-link-phone {
-  --lk-rgb: 52, 211, 153;
 }
 
 .contact-link::before {
@@ -5068,7 +5451,7 @@ a {
 ========================================================= */
 .reveal {
   opacity: 0;
-  transform: translateY(25px);
+  transform: translateY(28px) scale(0.985);
   transition:
     opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
@@ -5097,8 +5480,11 @@ a {
 }
 
 /* =========================================================
-   OPENING REVEAL (a clean, diagonal blue light sweep)
-   Only transform is animated for a smooth, lightweight transition.
+   OPENING REVEAL — "light split"
+   After the loader dissolves, a thin line of light draws across
+   the centre, flares, and the screen opens along it like a pair
+   of doors while the hero settles into place.
+   Only transform / opacity are animated (GPU friendly).
 ========================================================= */
 .portal {
   position: fixed;
@@ -5107,64 +5493,166 @@ a {
   overflow: hidden;
   pointer-events: none;
   isolation: isolate;
-  background:
-    linear-gradient(
-      112deg,
-      transparent 18%,
-      rgba(28, 150, 222, 0.08) 48%,
-      transparent 78%
-    ),
-    linear-gradient(135deg, #071321 0%, #0a1b30 48%, #061225 100%);
-  transform: translate3d(0, 0, 0);
-  transform-origin: center;
-  will-change: transform;
-  animation: portalCurtainExit 1.46s cubic-bezier(0.77, 0, 0.175, 1) forwards;
 }
 
-.portal::after {
+.portal-door {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(50% + 1px);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.portal-door-top {
+  top: 0;
+  background:
+    radial-gradient(
+      ellipse at 50% 100%,
+      rgba(40, 160, 235, 0.14),
+      transparent 62%
+    ),
+    linear-gradient(180deg, #050b14 0%, #07162a 100%);
+  animation: portalDoorTop 1s cubic-bezier(0.76, 0, 0.18, 1) 0.62s forwards;
+}
+
+.portal-door-bottom {
+  bottom: 0;
+  background:
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(40, 160, 235, 0.14),
+      transparent 62%
+    ),
+    linear-gradient(0deg, #050b14 0%, #07162a 100%);
+  animation: portalDoorBottom 1s cubic-bezier(0.76, 0, 0.18, 1) 0.62s forwards;
+}
+
+/* soft glow hugging the inner edge of each door */
+.portal-door::after {
   content: "";
   position: absolute;
-  top: -8%;
-  bottom: -8%;
   left: 0;
-  width: clamp(3px, 0.4vw, 6px);
+  right: 0;
+  height: clamp(48px, 11vh, 110px);
+  opacity: 0;
+  animation: portalEdge 0.5s ease 0.3s forwards;
+}
+
+.portal-door-top::after {
+  bottom: 0;
+  background: linear-gradient(0deg, rgba(88, 208, 255, 0.2), transparent);
+}
+
+.portal-door-bottom::after {
+  top: 0;
+  background: linear-gradient(180deg, rgba(88, 208, 255, 0.2), transparent);
+}
+
+.portal-flare {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(96vmin, 760px);
+  height: min(96vmin, 760px);
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(92, 212, 255, 0.34),
+    rgba(120, 104, 255, 0.12) 46%,
+    transparent 70%
+  );
+  opacity: 0;
+  transform: scale(0.2);
+  will-change: transform, opacity;
+  animation: portalFlare 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.52s forwards;
+}
+
+.portal-line {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 2px;
   background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(74, 197, 255, 0.35) 18%,
-    #c8f6ff 50%,
-    rgba(52, 169, 255, 0.6) 82%,
-    transparent 100%
+    90deg,
+    transparent,
+    #7fe3ff 18%,
+    #ffffff 50%,
+    #7fe3ff 82%,
+    transparent
   );
   box-shadow:
-    0 0 18px rgba(65, 190, 255, 0.75),
-    0 0 54px rgba(34, 141, 244, 0.38);
+    0 0 16px rgba(65, 190, 255, 0.85),
+    0 0 52px rgba(34, 141, 244, 0.5);
+  opacity: 0;
+  transform: scaleX(0);
+  will-change: transform, opacity;
+  animation: portalLine 1.3s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
 }
 
-.app.light .portal {
+.app.light .portal-door-top {
   background:
-    linear-gradient(
-      112deg,
-      transparent 18%,
-      rgba(49, 166, 223, 0.08) 48%,
-      transparent 78%
+    radial-gradient(
+      ellipse at 50% 100%,
+      rgba(49, 166, 223, 0.14),
+      transparent 62%
     ),
-    linear-gradient(135deg, #eaf8ff 0%, #d6f0ff 48%, #f3f8ff 100%);
+    linear-gradient(180deg, #f4f7fc 0%, #e6f2fc 100%);
 }
 
-.app.light .portal::after {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(18, 131, 204, 0.35) 18%,
-    #ffffff 50%,
-    rgba(18, 131, 204, 0.55) 82%,
-    transparent 100%
+.app.light .portal-door-bottom {
+  background:
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(49, 166, 223, 0.14),
+      transparent 62%
+    ),
+    linear-gradient(0deg, #f4f7fc 0%, #e6f2fc 100%);
+}
+
+.app.light .portal-door-top::after {
+  background: linear-gradient(0deg, rgba(18, 131, 204, 0.16), transparent);
+}
+
+.app.light .portal-door-bottom::after {
+  background: linear-gradient(180deg, rgba(18, 131, 204, 0.16), transparent);
+}
+
+.app.light .portal-flare {
+  background: radial-gradient(
+    circle,
+    rgba(18, 131, 204, 0.26),
+    rgba(90, 73, 214, 0.1) 46%,
+    transparent 70%
   );
+}
+
+.app.light .portal-line {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #3aa6e0 18%,
+    #ffffff 50%,
+    #3aa6e0 82%,
+    transparent
+  );
+  box-shadow:
+    0 0 16px rgba(18, 131, 204, 0.7),
+    0 0 52px rgba(18, 131, 204, 0.38);
+}
+
+/* the hero eases in from slightly zoomed while the doors open */
+.app.is-revealing .hero {
+  transform-origin: 50% 42%;
+  animation: heroSettle 1.3s cubic-bezier(0.22, 1, 0.36, 1) 0.6s backwards;
 }
 
 .app.is-revealing .navbar {
-  animation: navDrop 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.55s backwards;
+  animation: navDrop 0.95s cubic-bezier(0.22, 1, 0.36, 1) 1.05s backwards;
 }
 
 /* Hero content rises in as the light sweep reveals the page. */
@@ -5192,15 +5680,457 @@ a {
 }
 
 .hero-right.in-view .lottie-card {
-  animation: heroPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
+  animation:
+    heroPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards,
+    floatY 7s ease-in-out 1.6s infinite;
+}
+
+/* =========================================================
+   ENHANCEMENTS: skills badge, spotlight cards, nav extras, back-to-top
+========================================================= */
+.skill-icon {
+  color: var(--primary);
+  font: 800 15px / 1 var(--font-mono);
+  letter-spacing: 0.02em;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--spot-rgb), 0.15),
+    rgba(132, 121, 255, 0.12)
+  );
+}
+
+.spot {
+  --mx: 50%;
+  --my: 50%;
+
+  position: relative;
+  isolation: isolate;
+}
+
+.pc.spot {
+  --spot-rgb: var(--pc-rgb);
+}
+
+.spot::before,
+.spot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+/* soft glow under the content */
+.spot::before {
+  z-index: -1;
+  background: radial-gradient(
+    380px circle at var(--mx) var(--my),
+    rgba(var(--spot-rgb), 0.14),
+    transparent 62%
+  );
+}
+
+/* glowing border that follows the cursor */
+.spot::after {
+  z-index: 1;
+  padding: 1px;
+  background: radial-gradient(
+    240px circle at var(--mx) var(--my),
+    rgba(var(--spot-rgb), 0.8),
+    rgba(132, 121, 255, 0.35) 45%,
+    transparent 70%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.spot:hover::before,
+.spot:hover::after {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .spot::before,
+  .spot::after {
+    display: none;
+  }
+}
+
+.skip-link {
+  position: fixed;
+  top: 10px;
+  inset-inline-start: 12px;
+  z-index: 11000;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--grad);
+  color: var(--on-primary);
+  font-size: 13px;
+  font-weight: 800;
+  transform: translateY(-160%);
+  transition: transform 0.25s ease;
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+.nav-shell {
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.navbar.scrolled .nav-shell {
+  border-color: var(--border-strong);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app.light .navbar.scrolled .nav-shell {
+  box-shadow:
+    0 18px 50px rgba(56, 77, 105, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.nav-progress {
+  position: absolute;
+  inset-inline: 22px;
+  bottom: -1px;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.navbar.scrolled .nav-progress {
+  opacity: 1;
+}
+
+.nav-progress i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--progress);
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.app.lang-fa .nav-progress i {
+  transform-origin: right center;
+}
+
+.mobile-nav-links a.active {
+  color: var(--primary);
+  border-color: var(--border);
+  background: linear-gradient(
+    90deg,
+    rgba(var(--spot-rgb), 0.1),
+    rgba(132, 121, 255, 0.06)
+  );
+}
+
+.mobile-nav-links a.active::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.to-top {
+  position: fixed;
+  inset-inline-end: 18px;
+  bottom: 18px;
+  z-index: 55;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--nav-bg);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px) scale(0.9);
+  transition:
+    opacity 0.3s ease,
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.25s ease,
+    visibility 0s linear 0.35s;
+}
+
+.to-top.show {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.to-top.show:hover {
+  color: var(--primary);
+  transform: translateY(-3px);
+}
+
+.to-top-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.to-top-ring circle {
+  fill: none;
+  stroke-width: 2.2;
+}
+
+.ring-track {
+  stroke: var(--border);
+}
+
+.ring-bar {
+  stroke: var(--progress-solid);
+  stroke-linecap: round;
+  stroke-dasharray: 125.66;
+  stroke-dashoffset: 125.66;
+}
+
+.to-top-arrow {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+
+/* animated name and sheen on the hero caption card */
+.lottie-caption {
+  overflow: hidden;
+}
+
+.lottie-caption::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.14),
+    transparent
+  );
+  transform: translateX(-160%) skewX(-18deg);
+  animation: captionSheen 6s ease-in-out 2s infinite;
+  pointer-events: none;
+}
+
+.lottie-caption strong,
+.app.light .lottie-caption strong {
+  position: relative;
+  width: fit-content;
+  color: transparent;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  background-repeat: no-repeat;
+  background-size:
+    260% 100%,
+    100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: nameShine 5s ease-in-out infinite;
+}
+
+/* sober steel-blue palette + a faint band that sweeps across the name */
+.lottie-caption strong {
+  background-image:
+    linear-gradient(
+      105deg,
+      transparent 42%,
+      rgba(255, 255, 255, 0.8) 50%,
+      transparent 58%
+    ),
+    linear-gradient(90deg, #e8eef7 0%, #b9c9de 40%, #8fa9cc 75%, #c3d1e6 100%);
+}
+
+.app.light .lottie-caption strong {
+  background-image:
+    linear-gradient(
+      105deg,
+      transparent 42%,
+      rgba(255, 255, 255, 0.75) 50%,
+      transparent 58%
+    ),
+    linear-gradient(90deg, #0f1f35 0%, #1f4f86 45%, #2f5f9c 75%, #16335a 100%);
+}
+
+/* thin accent line under the name */
+.lottie-caption strong::after {
+  content: "";
+  display: block;
+  width: 30px;
+  height: 2px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: var(--progress);
+  transform-origin: left center;
+  animation: nameLine 3.6s ease-in-out infinite;
+}
+
+.app.lang-fa .lottie-caption strong::after {
+  transform-origin: right center;
+}
+
+.app.light .lottie-caption::after {
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
+}
+
+.hamburger-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  transition: border-color 0.25s ease;
+}
+
+.hamburger-btn:hover {
+  border-color: var(--border-strong);
 }
 
 /* =========================================================
    KEYFRAMES
 ========================================================= */
-@keyframes portalCurtainExit {
+@keyframes portalDoorTop {
   to {
-    transform: translate3d(108%, 0, 0) skewX(-7deg);
+    transform: translate3d(0, -101%, 0);
+  }
+}
+
+@keyframes portalDoorBottom {
+  to {
+    transform: translate3d(0, 101%, 0);
+  }
+}
+
+@keyframes portalEdge {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes portalLine {
+  0% {
+    opacity: 0;
+    transform: scaleX(0) scaleY(1);
+  }
+  10% {
+    opacity: 1;
+  }
+  32% {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1);
+  }
+  48% {
+    opacity: 1;
+    transform: scaleX(1) scaleY(2.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1.15) scaleY(0.5);
+  }
+}
+
+@keyframes portalFlare {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@keyframes heroSettle {
+  from {
+    opacity: 0.15;
+    transform: scale(1.07);
+  }
+}
+
+@keyframes nameShine {
+  0%,
+  30% {
+    background-position:
+      160% 0,
+      0 0;
+  }
+  70%,
+  100% {
+    background-position:
+      -60% 0,
+      0 0;
+  }
+}
+
+@keyframes nameLine {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scaleX(0.35);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes captionSheen {
+  0%,
+  55% {
+    transform: translateX(-160%) skewX(-18deg);
+  }
+  85%,
+  100% {
+    transform: translateX(380%) skewX(-18deg);
+  }
+}
+
+@keyframes nameFlow {
+  to {
+    background-position: 183.333% 0;
+  }
+}
+
+@keyframes floatY {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
   }
 }
 
@@ -5504,16 +6434,16 @@ a {
   }
 
   .glass-stage {
-    min-height: 500px;
+    min-height: 560px;
   }
 
   .lottie-card {
-    min-height: 450px;
+    min-height: 510px;
   }
 
   .hero-lottie {
-    width: min(100%, 370px);
-    height: 370px;
+    width: min(100%, 425px);
+    height: 425px;
   }
 }
 
@@ -5554,7 +6484,7 @@ a {
   }
 
   .glass-stage {
-    min-height: 480px;
+    min-height: 540px;
   }
 
   .skills-grid,
@@ -5610,6 +6540,7 @@ a {
 
   .contact-actions {
     justify-content: center;
+    margin-inline: auto;
   }
 
   .contact-lottie-wrap {
@@ -5733,9 +6664,9 @@ a {
   }
 
   .hero-lottie {
-    width: min(100%, 360px);
-    height: min(78vw, 350px);
-    min-height: 250px;
+    width: min(100%, 420px);
+    height: min(88vw, 400px);
+    min-height: 290px;
   }
 
   .lottie-caption {
@@ -5826,7 +6757,6 @@ a {
   .hero-chip,
   .floating-techs span,
   .premium-btn.ghost,
-  .switch-bg,
   .lottie-caption,
   .showcase-card,
   .pc-filters,
@@ -5962,9 +6892,9 @@ a {
   }
 
   .hero-lottie {
-    width: min(100%, 320px);
-    height: min(78vw, 300px);
-    min-height: 230px;
+    width: min(100%, 360px);
+    height: min(86vw, 340px);
+    min-height: 260px;
   }
 
   .lottie-caption {
@@ -5975,7 +6905,7 @@ a {
   }
 
   .lottie-caption strong {
-    font-size: 11px;
+    font-size: 13.5px;
   }
 
   .lottie-caption small {
@@ -5993,20 +6923,6 @@ a {
 
   .showcase-card span {
     font-size: 9px;
-  }
-
-  .mobile-menu-panel {
-    padding: 17px;
-  }
-}
-
-@media (max-width: 460px) {
-  .mobile-actions {
-    grid-template-columns: 1fr;
-  }
-
-  .mobile-actions .switch-btn {
-    height: 43px;
   }
 }
 
@@ -6042,8 +6958,8 @@ a {
   }
 
   .hero-lottie {
-    min-height: 210px;
-    height: 67vw;
+    min-height: 240px;
+    height: 78vw;
   }
 
   .lottie-caption {
@@ -6055,30 +6971,12 @@ a {
   .brand-role {
     display: none;
   }
-
-  .mobile-menu-panel {
-    padding: 14px;
-  }
-
-  .mobile-nav-links a {
-    min-height: 48px;
-    font-size: 14px;
-  }
 }
 
 @media (max-height: 650px) and (max-width: 760px) {
-  .mobile-menu-header {
-    padding-bottom: 10px;
-  }
-
-  .mobile-nav-links {
-    padding-block: 10px;
-    gap: 4px;
-  }
-
   .mobile-nav-links a {
-    min-height: 44px;
-    padding-block: 10px;
+    min-height: 38px;
+    padding-block: 6px;
   }
 }
 
