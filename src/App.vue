@@ -1382,19 +1382,30 @@ const toggleLang = () => {
   lang.value = isFa.value ? "en" : "fa";
 };
 const applyTheme = () => {
+  const root = document.documentElement;
+
+  /* خاموش کردن موقت transitionها تا فریم سوئیچ تم سنگین نشود */
+  root.classList.add("theme-switching");
   theme.value = theme.value === "dark" ? "light" : "dark";
+
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => root.classList.remove("theme-switching")),
+  );
 };
 
 /* Theme switch: a circular reveal that expands from the clicked button
    (View Transitions API). Falls back to an instant switch when the
-   browser doesn't support it or the user prefers reduced motion. */
+   browser doesn't support it, the user prefers reduced motion,
+   or the device is touch / small-screen (to avoid lag on mobile). */
 let themeTransitioning = false;
 
 const toggleTheme = async (event) => {
   const canAnimate =
     typeof document.startViewTransition === "function" &&
     !prefersReducedMotion &&
-    !themeTransitioning;
+    !themeTransitioning &&
+    hasFinePointer() &&
+    window.innerWidth > 760;
 
   if (!canAnimate) {
     applyTheme();
@@ -2274,6 +2285,13 @@ a {
 
 ::view-transition-new(root) {
   z-index: 2;
+}
+
+/* هنگام سوئیچ تم، همه‌ی transitionها لحظه‌ای خاموش می‌شوند */
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
