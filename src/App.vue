@@ -1443,8 +1443,14 @@ const toggleTheme = async (event) => {
     await nextTick();
   });
 
+  let resumeTimer = 0;
+
   try {
     await transition.ready;
+
+    /* the circle is ~90% revealed by about half the duration (ease-out),
+       so animations resume then instead of waiting for the very end */
+    resumeTimer = window.setTimeout(unfreezeMotion, 600);
 
     document.documentElement.animate(
       {
@@ -1465,6 +1471,7 @@ const toggleTheme = async (event) => {
     /* transition skipped or interrupted: the theme is already applied */
   } finally {
     themeTransitioning = false;
+    clearTimeout(resumeTimer);
     unfreezeMotion();
   }
 };
