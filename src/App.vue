@@ -1382,33 +1382,41 @@ const toggleLang = () => {
   lang.value = isFa.value ? "en" : "fa";
 };
 const applyTheme = () => {
-  const root = document.documentElement;
-
-  /* خاموش کردن موقت transitionها تا فریم سوئیچ تم سنگین نشود */
-  root.classList.add("theme-switching");
   theme.value = theme.value === "dark" ? "light" : "dark";
-
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => root.classList.remove("theme-switching")),
-  );
 };
 
 /* Theme switch: a circular reveal that expands from the clicked button
    (View Transitions API). Falls back to an instant switch when the
-   browser doesn't support it, the user prefers reduced motion,
-   or the device is touch / small-screen (to avoid lag on mobile). */
+   browser doesn't support it or the user prefers reduced motion. */
 let themeTransitioning = false;
+
+/* Lag fix: freeze every running animation (CSS + Lottie) while the theme
+   changes, then resume. Same visual result, far less work per frame. */
+const freezeMotion = () => {
+  document.documentElement.classList.add("theme-switching");
+  lottieEntries.forEach((entry) => entry.instance?.pause());
+};
+
+const unfreezeMotion = () => {
+  document.documentElement.classList.remove("theme-switching");
+
+  if (prefersReducedMotion) return;
+
+  lottieEntries.forEach((entry) => {
+    if (entry.visible) entry.instance?.play();
+  });
+};
 
 const toggleTheme = async (event) => {
   const canAnimate =
     typeof document.startViewTransition === "function" &&
     !prefersReducedMotion &&
-    !themeTransitioning &&
-    hasFinePointer() &&
-    window.innerWidth > 760;
+    !themeTransitioning;
 
   if (!canAnimate) {
+    freezeMotion();
     applyTheme();
+    requestAnimationFrame(() => requestAnimationFrame(unfreezeMotion));
 
     return;
   }
@@ -1424,6 +1432,8 @@ const toggleTheme = async (event) => {
   themeTransitioning = true;
 
   const transition = document.startViewTransition(async () => {
+    /* runs after the "old" snapshot is taken, before the "new" one */
+    freezeMotion();
     applyTheme();
     await nextTick();
   });
@@ -1450,6 +1460,7 @@ const toggleTheme = async (event) => {
     /* transition skipped or interrupted: the theme is already applied */
   } finally {
     themeTransitioning = false;
+    unfreezeMotion();
   }
 };
 
@@ -2287,11 +2298,24 @@ a {
   z-index: 2;
 }
 
-/* هنگام سوئیچ تم، همه‌ی transitionها لحظه‌ای خاموش می‌شوند */
+/* While the theme reveal plays, the "new" snapshot is a LIVE capture, so
+   every running animation would be re-rendered each frame. Freeze them
+   (and the transitions) for the duration of the reveal. */
 .theme-switching *,
 .theme-switching *::before,
 .theme-switching *::after {
   transition: none !important;
+  animation-play-state: paused !important;
+}
+
+/* touch / small screens: blur layers are the costliest thing to re-capture */
+@media (hover: none), (max-width: 760px) {
+  .theme-switching *,
+  .theme-switching *::before,
+  .theme-switching *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
