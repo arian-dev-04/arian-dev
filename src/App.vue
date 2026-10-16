@@ -1394,7 +1394,12 @@ let themeTransitioning = false;
    changes, then resume. Same visual result, far less work per frame. */
 const freezeMotion = () => {
   document.documentElement.classList.add("theme-switching");
-  lottieEntries.forEach((entry) => entry.instance?.pause());
+  lottieEntries.forEach((entry) => {
+    /* the bird inside the mobile menu keeps playing */
+    if (entry.el === mobileLottieEl) return;
+
+    entry.instance?.pause();
+  });
 };
 
 const unfreezeMotion = () => {
@@ -1449,7 +1454,7 @@ const toggleTheme = async (event) => {
         ],
       },
       {
-        duration: 950,
+        duration: 1300,
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         pseudoElement: "::view-transition-new(root)",
       },
