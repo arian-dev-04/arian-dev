@@ -5734,9 +5734,7 @@ a {
 }
 
 .hero-right.in-view .lottie-card {
-  animation:
-    heroPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards,
-    floatY 7s ease-in-out 1.6s infinite;
+  animation: heroPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
 }
 
 /* =========================================================
