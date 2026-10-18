@@ -3162,20 +3162,14 @@ a {
       rgba(255, 255, 255, 0.07),
       rgba(255, 255, 255, 0.025)
     ),
-    var(--nav-bg);
+    #07111f;
   box-shadow:
     0 18px 45px rgba(0, 0, 0, 0.13),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
 }
 
 .app.light .nav-shell {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.96),
-    rgba(245, 248, 252, 0.86)
-  );
+  background: linear-gradient(135deg, #ffffff, #f5f8fc);
   box-shadow:
     0 18px 45px rgba(56, 77, 105, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.92);
@@ -5734,7 +5728,9 @@ a {
 }
 
 .hero-right.in-view .lottie-card {
-  animation: heroPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
+  animation:
+    heroPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards,
+    floatY 7s ease-in-out 1.6s infinite;
 }
 
 /* =========================================================
@@ -6796,11 +6792,11 @@ a {
   }
 
   .nav-shell {
-    background: var(--nav-bg);
+    background: #07111f;
   }
 
   .app.light .nav-shell {
-    background: rgba(255, 255, 255, 0.96);
+    background: #ffffff;
   }
 
   .nav-shell,
