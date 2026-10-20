@@ -1385,94 +1385,138 @@ const applyTheme = () => {
   theme.value = theme.value === "dark" ? "light" : "dark";
 };
 
-/* Theme switch: a circular reveal that expands from the clicked button
-   (View Transitions API). Falls back to an instant switch when the
-   browser doesn't support it or the user prefers reduced motion. */
+/* =========================================================
+   THEME SWITCH
+   · Desktop  – circular reveal that expands from the clicked button.
+   · Phones / touch / very large screens – quiet cross-dissolve.
+   Both use the View Transitions API and animate only clip-path / opacity;
+   browsers without it (or with reduced motion) switch instantly.
+========================================================= */
+const REVEAL_MS = 950;
+const REVEAL_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+/* keep in sync with `theme-fade-in` in the unscoped <style> */
+const FADE_MS = 620;
+/* Beyond this viewport area (CSS px², ≈ 2560×1000) repainting a full-screen
+   clip-path every frame costs too much, so the cheaper cross-dissolve is used. */
+const REVEAL_MAX_AREA = 2_500_000;
+
+const softThemeQuery =
+  typeof window !== "undefined"
+    ? window.matchMedia("(hover: none), (pointer: coarse), (max-width: 760px)")
+    : null;
+
 let themeTransitioning = false;
 
-/* Lag fix: freeze every running animation (CSS + Lottie) while the theme
-   changes, then resume. Same visual result, far less work per frame. */
-const freezeMotion = () => {
-  document.documentElement.classList.add("theme-switching");
-  lottieEntries.forEach((entry) => {
-    /* the bird inside the mobile menu keeps playing */
-    if (entry.el === mobileLottieEl) return;
+/* Freeze / resume every running animation (CSS + Lottie). The Lottie inside
+   the mobile menu keeps playing. */
+const setMotionFrozen = (frozen) => {
+  document.documentElement.classList.toggle("theme-switching", frozen);
 
-    entry.instance?.pause();
+  lottieEntries.forEach((entry) => {
+    if (frozen) {
+      if (entry.el !== mobileLottieEl) entry.instance?.pause();
+    } else if (!prefersReducedMotion && entry.visible) {
+      entry.instance?.play();
+    }
   });
 };
 
-const unfreezeMotion = () => {
-  document.documentElement.classList.remove("theme-switching");
+const nextFrames = (count = 2) =>
+  new Promise((resolve) => {
+    const step = (left) =>
+      requestAnimationFrame(() => (left <= 1 ? resolve() : step(left - 1)));
 
-  if (prefersReducedMotion) return;
-
-  lottieEntries.forEach((entry) => {
-    if (entry.visible) entry.instance?.play();
+    step(count);
   });
-};
 
 const toggleTheme = async (event) => {
-  const canAnimate =
-    typeof document.startViewTransition === "function" &&
-    !prefersReducedMotion &&
-    !themeTransitioning;
+  /* a click during a running transition just flips the theme right away */
+  if (
+    themeTransitioning ||
+    !document.startViewTransition ||
+    prefersReducedMotion
+  ) {
+    const quiet = themeTransitioning === false;
 
-  if (!canAnimate) {
-    freezeMotion();
+    if (quiet) setMotionFrozen(true);
     applyTheme();
-    requestAnimationFrame(() => requestAnimationFrame(unfreezeMotion));
+
+    if (quiet) {
+      await nextFrames(2);
+      setMotionFrozen(false);
+    }
 
     return;
   }
 
-  const rect = event?.currentTarget?.getBoundingClientRect?.();
-  const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
-  const y = rect ? rect.top + rect.height / 2 : 0;
-  const radius = Math.hypot(
-    Math.max(x, window.innerWidth - x),
-    Math.max(y, window.innerHeight - y),
-  );
+  const root = document.documentElement;
+  const soft =
+    softThemeQuery?.matches ||
+    window.innerWidth * window.innerHeight > REVEAL_MAX_AREA;
+
+  /* reveal origin: read before the transition starts */
+  let x = 0;
+  let y = 0;
+  let radius = 0;
+
+  if (!soft) {
+    const rect = event?.currentTarget?.getBoundingClientRect?.();
+
+    x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+    y = rect ? rect.top + rect.height / 2 : 0;
+    radius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+  }
 
   themeTransitioning = true;
-
-  const transition = document.startViewTransition(async () => {
-    /* runs after the "old" snapshot is taken, before the "new" one */
-    freezeMotion();
-    applyTheme();
-    await nextTick();
-  });
 
   let resumeTimer = 0;
 
   try {
+    if (soft) {
+      root.classList.add("theme-fade");
+      setMotionFrozen(true);
+    }
+
+    const transition = document.startViewTransition(async () => {
+      applyTheme();
+      await nextTick();
+    });
+
     await transition.ready;
 
-    /* the circle is ~90% revealed by about half the duration (ease-out),
-       so animations resume then instead of waiting for the very end */
-    resumeTimer = window.setTimeout(unfreezeMotion, 600);
-
-    document.documentElement.animate(
-      {
-        clipPath: [
-          `circle(0px at ${x}px ${y}px)`,
-          `circle(${radius}px at ${x}px ${y}px)`,
-        ],
-      },
-      {
-        duration: 1300,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        pseudoElement: "::view-transition-new(root)",
-      },
-    );
+    if (soft) {
+      /* resume page animations a little before the fade ends */
+      resumeTimer = window.setTimeout(
+        () => setMotionFrozen(false),
+        FADE_MS * 0.7,
+      );
+    } else {
+      root.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${radius}px at ${x}px ${y}px)`,
+          ],
+        },
+        {
+          duration: REVEAL_MS,
+          easing: REVEAL_EASING,
+          pseudoElement: "::view-transition-new(root)",
+        },
+      );
+    }
 
     await transition.finished;
   } catch {
-    /* transition skipped or interrupted: the theme is already applied */
+    /* skipped or interrupted: the theme is already applied */
   } finally {
-    themeTransitioning = false;
     clearTimeout(resumeTimer);
-    unfreezeMotion();
+    root.classList.remove("theme-fade");
+    if (soft) setMotionFrozen(false);
+    themeTransitioning = false;
   }
 };
 
@@ -2295,7 +2339,8 @@ a {
   text-decoration: none;
 }
 
-/* Theme-switch circular reveal: the animation itself runs from JS. */
+/* Theme switch. Desktop: circular reveal, the animation itself runs from JS.
+   Phones: cross-dissolve (class "theme-fade"), opacity only. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -2310,9 +2355,26 @@ a {
   z-index: 2;
 }
 
-/* While the theme reveal plays, the "new" snapshot is a LIVE capture, so
-   every running animation would be re-rendered each frame. Freeze them
-   (and the transitions) for the duration of the reveal. */
+:root.theme-fade::view-transition-group(root) {
+  animation: none;
+}
+
+:root.theme-fade::view-transition-new(root) {
+  animation: theme-fade-in 0.62s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes theme-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* While the theme fades, freeze every page animation and transition so
+   the browser only has to animate the veil itself. */
 .theme-switching *,
 .theme-switching *::before,
 .theme-switching *::after {
